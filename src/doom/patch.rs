@@ -209,7 +209,7 @@ impl Image {
 /// into an array of bytes. The palette can be indexed as expected.
 #[derive(Clone, Debug)]
 pub struct Palette {
-    colors: Vec<Color>,
+    colors: [Color; PALETTE_COLORS],
 }
 
 impl Palette {
@@ -219,23 +219,23 @@ impl Palette {
             return Err(InvalidPaletteLength(buf.len()));
         }
 
-        let mut colors = Vec::with_capacity(PALETTE_COLORS);
+        let mut colors = [Color::default(); PALETTE_COLORS];
 
-        for start_ix in (0..PALETTE_COLORS).map(|ix| ix * 3) {
+        for i in 0..PALETTE_COLORS {
+            let start_ix = i * 3;
             let mut color = [0u8; 3];
             color.copy_from_slice(&buf[start_ix..start_ix + 3]);
 
             let [r, g, b] = color;
+            let color: Color = Srgba {
+                red: r as f32 / 255.,
+                green: g as f32 / 255.,
+                blue: b as f32 / 255.,
+                alpha: 1.,
+            }
+            .into();
 
-            colors.push(
-                Srgba {
-                    red: r as f32 / 255.,
-                    green: g as f32 / 255.,
-                    blue: b as f32 / 255.,
-                    alpha: 1.,
-                }
-                .into(),
-            );
+            colors[i] = color;
         }
 
         Ok(Palette { colors })

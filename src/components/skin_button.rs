@@ -2,7 +2,7 @@
 
 use leptos::prelude::*;
 
-use crate::skins::Skin;
+use crate::skin::Skin;
 
 #[component]
 pub fn SkinButton(skin: Skin) -> impl IntoView {

@@ -1,8 +1,8 @@
 //! Discovers and compiles all skins.
 
 use crate::doom::patch::Palette;
-use crate::doom::spray::Spray;
 use crate::doom::{patch::Patch as DoomPatch, skin::SkinDefine};
+use crate::spray::Spray;
 
 use std::io::{Cursor, Read};
 use std::ops::Deref;
@@ -31,19 +31,21 @@ pub struct Skin {
 }
 
 impl Skin {
-    /// Creates a new `Skin` from [`SkinData`].
-    ///
-    /// This sets up  some
-    pub fn new(value: SkinData) -> Skin {
+    /// Creates a new `Skin` from [`SkinData`] and the initial spray color of
+    /// the skin.
+    pub fn new(value: SkinData, spray: Spray) -> Skin {
         let data = Arc::new(value);
         let data_clone = data.clone();
 
-        let spray = RwSignal::default();
+        let spray = RwSignal::new(spray);
         let thumbnail_url = Signal::derive(move || {
             // get spray color
-            let _spray = spray.get();
+            let spray = spray.get();
 
-            match create_thumbnail(data_clone.clone(), &Palette::default()) {
+            // remap spray
+            let palette = spray.remap(&Palette::default(), data_clone.startcolor as usize);
+
+            match create_thumbnail(data_clone.clone(), &palette) {
                 Ok(url) => Some(url),
                 Err(err) => {
                     leptos::logging::error!("{:?}", err);
@@ -59,7 +61,16 @@ impl Skin {
         }
     }
 
+    /// Sets the spray of the skin, reactively updating anything that needs it.
+    pub fn set_spray(&self, spray: impl Into<Spray>) {
+        self.spray.set(spray.into());
+    }
+
     /// The thumbnail url of the skin.
+    ///
+    /// # Reactivity
+    /// This internally calls the [`Signal::get`] function of a signal stored
+    /// inside of this skin.
     pub fn thumbnail_url(&self) -> Option<String> {
         self.thumbnail_url.get()
     }
@@ -72,7 +83,7 @@ impl Skin {
 
 impl From<SkinData> for Skin {
     fn from(value: SkinData) -> Self {
-        Skin::new(value)
+        Skin::new(value, Spray::default())
     }
 }
 
@@ -143,19 +154,4 @@ pub struct SkinData {
     /// The skin description.
     #[deref]
     pub skin: SkinDefine,
-}
-
-/// A patch.
-///
-/// Exposes methods for encoding the patch data into more usable formats.
-#[derive(Clone, Debug)]
-pub struct Patch {
-    data: Vec<u8>,
-}
-
-impl Patch {
-    /// Creates a new patch from its raw bytes.
-    pub fn new(data: impl Into<Vec<u8>>) -> Patch {
-        Patch { data: data.into() }
-    }
 }

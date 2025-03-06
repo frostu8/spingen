@@ -6,6 +6,7 @@
 
 use super::Spray;
 
+/// All of the basegame sprays in a big vector.
 pub fn sprays() -> Vec<Spray> {
     vec![
         Spray {

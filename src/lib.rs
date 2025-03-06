@@ -1,12 +1,14 @@
 pub mod components;
 pub mod doom;
 pub mod pages;
-pub mod skins;
+pub mod skin;
+pub mod spray;
 
 use crate::components::header::Header;
 use crate::doom::{skin::SkinDefine, soc};
 use crate::pages::home::Home;
-use crate::skins::{Skin, SkinData};
+use crate::skin::{Skin, SkinData};
+use crate::spray::sprays;
 
 use leptos::prelude::*;
 use leptos_meta::*;
@@ -29,6 +31,7 @@ pub fn App() -> impl IntoView {
     // Provides context that manages stylesheets, titles, meta tags, etc.
     provide_meta_context();
 
+    let (spray_list, set_spray_list) = signal(sprays());
     let (skin_list, set_skin_list) = signal(im::HashMap::<String, Skin>::new());
 
     let on_file = move |file: File| {
@@ -36,22 +39,31 @@ pub fn App() -> impl IntoView {
 
         // try to load file
         wasm_bindgen_futures::spawn_local(async move {
-            let on_skins = move |skins: Vec<Skin>| {
-                // get skin list
-                let mut skin_list = skin_list.get_untracked();
+            match load_pk3(file).await {
+                Ok(skins) => {
+                    // get skin list
+                    let mut skin_list = skin_list.get_untracked();
+                    let spray_list = spray_list.get();
 
-                // merge with list
-                for skin in skins {
-                    leptos::logging::log!("inserting skin {:?}", skin.name);
-                    skin_list.insert(skin.name.clone(), skin);
+                    // merge with list
+                    for skin in skins {
+                        leptos::logging::log!("inserting skin {:?}", skin.name);
+
+                        // find skin's spray
+                        let spray = spray_list
+                            .iter()
+                            .find(|spray| spray.name.eq_ignore_ascii_case(&skin.prefcolor))
+                            .cloned()
+                            .unwrap_or_default();
+                        skin_list.insert(skin.name.clone(), Skin::new(skin, spray));
+                    }
+
+                    set_skin_list(skin_list);
                 }
-
-                set_skin_list(skin_list);
-            };
-
-            if let Err(err) = load_pk3(on_skins, file).await {
-                // TODO: show error to user
-                leptos::logging::error!("{:?}", err);
+                Err(err) => {
+                    // TODO: show error to user
+                    leptos::logging::error!("{:?}", err);
+                }
             }
         });
     };
@@ -76,10 +88,7 @@ pub fn App() -> impl IntoView {
     }
 }
 
-async fn load_pk3(
-    on_skins: impl Fn(Vec<Skin>) + Send + Sync + 'static,
-    file: File,
-) -> Result<(), Report> {
+async fn load_pk3(file: File) -> Result<Vec<SkinData>, Report> {
     // read all data
     let data = read_as_bytes(&file)
         .await
@@ -112,7 +121,7 @@ async fn load_pk3(
         .collect::<Result<Vec<_>, Report>>()?;
 
     // now, create a skin for each define
-    let mut skins: Vec<Skin> = Vec::with_capacity(s_skins.len());
+    let mut skins = Vec::with_capacity(s_skins.len());
 
     for file_index in s_skins {
         // get s_skin entry
@@ -136,14 +145,12 @@ async fn load_pk3(
             .deserialize::<SkinDefine>()
             .wrap_err(format!("invalid S_SKIN lump {:?}", entry.name()))?;
 
-        skins.push(Skin::from(SkinData {
+        skins.push(SkinData {
             data: data.clone(),
             skin: skin_define,
             path,
-        }));
+        });
     }
 
-    on_skins(skins);
-
-    Ok(())
+    Ok(skins)
 }

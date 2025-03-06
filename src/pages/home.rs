@@ -3,7 +3,7 @@
 use leptos::prelude::*;
 
 use crate::components::skin_button::SkinButton;
-use crate::skins::Skin;
+use crate::skin::Skin;
 
 /// Default Home Page
 #[component]
