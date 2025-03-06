@@ -1,20 +1,23 @@
 //! The home page.
 
 use leptos::prelude::*;
+use leptos_router::nested_router::Outlet;
 
-use crate::components::skin_button::SkinButton;
-use crate::skin::Skin;
+use crate::components::skin_select::SkinSelect;
+use crate::skin::SkinData;
+use crate::spray::Spray;
 
 /// Default Home Page
 #[component]
-pub fn Home(skin_list: ReadSignal<im::HashMap<String, Skin>>) -> impl IntoView {
+pub fn Home(
+    skins: impl Fn() -> im::Vector<SkinData> + Send + Sync + 'static,
+    sprays: impl Into<Signal<im::Vector<Spray>>>,
+) -> impl IntoView {
+    let sprays = sprays.into();
     view! {
-        <div class="skin-container">
-            <For
-                each=move || skin_list.get()
-                key=move |(_, skin)| skin.name.clone()
-                children=move |(_, skin)| view! { <SkinButton skin/> }
-            />
-        </div>
+        <main>
+            <SkinSelect skins sprays />
+            <Outlet/>
+        </main>
     }
 }

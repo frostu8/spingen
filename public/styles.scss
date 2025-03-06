@@ -24,6 +24,10 @@ header {
   flex-direction: row;
   justify-content: flex-end;
   align-items: center;
+  position: sticky;
+  top: 0;
+  left: 0;
+  height: 8em;
 }
 
 .buttons {
@@ -45,10 +49,32 @@ button {
   margin: 2rem;
 }
 
-/* drop area shenanigans */
-#app-drop-area {
-  position: absolute;
-  z-index: -1;
+main {
+  display: flex;
+  flex-flow: row nowrap;
+  justify-content: flex-end;
+  height: calc(100vh - 8em);
+}
+
+.skin-container {
+  display: flex;
+  flex-flow: row wrap;
+  justify-content: center;
+  background-color: var(--_bg);
+  flex-basis: 50%;
+  overflow: scroll;
+  height: 100%;
+}
+
+.skin-show {
+  flex-grow: 1;
+  justify-content: center;
+}
+
+.skin-show img {
+  margin: var(--size-6);
+  flex-grow: 1;
+  image-rendering: pixelated;
 }
 
 .hidden {
@@ -62,12 +88,6 @@ button {
   border: 0;
   display: inline;
   background-color: inherit;
-}
-
-.skin-container {
-  display: flex;
-  flex-flow: row wrap;
-  justify-content: flex-start;
 }
 
 .skin-button {
@@ -85,5 +105,12 @@ button {
 }
 
 .skin-button p {
-  margin: 0;
+  margin: 0.5em 0 0 0;
+  text-align: center;
+}
+
+/* drop area shenanigans */
+#app-drop-area {
+  position: absolute;
+  z-index: -1;
 }

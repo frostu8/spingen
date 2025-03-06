@@ -16,7 +16,7 @@ console_error_panic_hook = "0.1"
 bevy_color = { version = "0.15.4", default-features = false }
 serde = { version = "1.0.218", features = ["derive"] }
 eyre = "0.6.12"
-derive_more = { version = "2.0.1", features = ["deref", "display", "error"] }
+derive_more = { version = "2.0.1", features = ["deref", "deref_mut", "display", "error"] }
 bincode = "1.3.3"
 ahash = "0.8.11"
 im = "15.1.0"
@@ -27,6 +27,7 @@ gloo = { version = "0.11.0", features = ["futures"] }
 web-sys = { version = "0.3", features = ["File", "FileList", "HtmlInputElement", "Url"] }
 wasm-bindgen-futures = "0.4.50"
 bytes = "1.10.1"
+gif = "0.13.1"
 
 # utils
 # strum = { version = "0.25", features = ["derive", "strum_macros"] }

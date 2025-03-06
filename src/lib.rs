@@ -1,13 +1,14 @@
 pub mod components;
 pub mod doom;
+pub mod image;
 pub mod pages;
 pub mod skin;
 pub mod spray;
 
 use crate::components::header::Header;
 use crate::doom::{skin::SkinDefine, soc};
-use crate::pages::home::Home;
-use crate::skin::{Skin, SkinData};
+use crate::pages::{home::Home, show::Show};
+use crate::skin::SkinData;
 use crate::spray::sprays;
 
 use leptos::prelude::*;
@@ -31,35 +32,17 @@ pub fn App() -> impl IntoView {
     // Provides context that manages stylesheets, titles, meta tags, etc.
     provide_meta_context();
 
-    let (spray_list, set_spray_list) = signal(sprays());
-    let (skin_list, set_skin_list) = signal(im::HashMap::<String, Skin>::new());
+    // the list of loaded sprays
+    let (sprays, set_sprays) = signal(sprays());
 
+    // the raw skin datas, this will be used to create the normal skin datas
+    let (skins, set_skins) = signal(im::Vector::<SkinData>::new());
     let on_file = move |file: File| {
-        leptos::logging::log!("got file {:?}", file.name());
-
         // try to load file
         wasm_bindgen_futures::spawn_local(async move {
             match load_pk3(file).await {
-                Ok(skins) => {
-                    // get skin list
-                    let mut skin_list = skin_list.get_untracked();
-                    let spray_list = spray_list.get();
-
-                    // merge with list
-                    for skin in skins {
-                        leptos::logging::log!("inserting skin {:?}", skin.name);
-
-                        // find skin's spray
-                        let spray = spray_list
-                            .iter()
-                            .find(|spray| spray.name.eq_ignore_ascii_case(&skin.prefcolor))
-                            .cloned()
-                            .unwrap_or_default();
-                        skin_list.insert(skin.name.clone(), Skin::new(skin, spray));
-                    }
-
-                    set_skin_list(skin_list);
-                }
+                // merge with list
+                Ok(skins) => set_skins.update(move |data| data.extend(skins)),
                 Err(err) => {
                     // TODO: show error to user
                     leptos::logging::error!("{:?}", err);
@@ -82,7 +65,9 @@ pub fn App() -> impl IntoView {
 
         <Router>
             <Routes fallback=|| view! { NotFound }>
-                <Route path=path!("/") view=move || view! { <Home skin_list/> } />
+                <ParentRoute path=path!("/") view=move || view! { <Home skins sprays /> }>
+                    <Route path=path!(":name") view=move || view! { <Show skins sprays /> } />
+                </ParentRoute>
             </Routes>
         </Router>
     }
