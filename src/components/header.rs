@@ -15,7 +15,7 @@ pub fn Header() -> impl IntoView {
             <p>
                 { "Show off your racer!" }
                 <br/>
-                { "Drag and drop a pk3, wad, or zip." }
+                { "Drag and drop a pk3." }
                 <br/>
                 <strong>{ "Note:" }</strong> { " Only supports vanilla colors (for now)" }
             </p>

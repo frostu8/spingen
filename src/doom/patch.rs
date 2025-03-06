@@ -20,6 +20,7 @@ pub const PALETTE_COLORS: usize = 1 << 8;
 const END_OF_COLUMN: u8 = 0xFF;
 
 /// A patch.
+#[derive(Clone, Debug)]
 pub struct Patch {
     /// The width of the patch.
     pub width: usize,

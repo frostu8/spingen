@@ -4,7 +4,7 @@ use serde::Deserialize;
 
 /// A skin definition.
 #[derive(Clone, Debug, Deserialize)]
-pub struct Skin {
+pub struct SkinDefine {
     /// The name that identifies this skin.
     pub name: String,
     /// The real, display name of the skin.

@@ -5,6 +5,7 @@ use leptos_router::{components::*, path};
 pub mod components;
 pub mod doom;
 pub mod pages;
+pub mod skins;
 
 use crate::pages::home::Home;
 
