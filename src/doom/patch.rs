@@ -1,6 +1,6 @@
 //! ZDoom patches.
 
-use std::io::{Read, Seek, SeekFrom};
+use std::io::{Read, Seek, SeekFrom, Write};
 use std::ops::{Deref, DerefMut};
 
 use bevy_color::{Color, Srgba};
@@ -28,17 +28,6 @@ pub struct Patch {
     pub top: i32,
     /// The image data.
     pub image: Image,
-}
-
-/// The image portion of a patch.
-///
-/// The data here is stored as a flattened array of `SrgbaUnorm`. The size of
-/// data, if the image is well-formed, will be `width * height * 4`.
-#[derive(Clone, Debug)]
-pub struct Image {
-    pub width: usize,
-    pub height: usize,
-    pub data: Vec<u8>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -127,8 +116,8 @@ impl Patch {
 
         // create image
         let image = Image {
-            width,
-            height,
+            width: width as u32,
+            height: height as u32,
             data,
         };
 
@@ -163,6 +152,54 @@ where
     } else {
         // thjs is the last post
         Ok(false)
+    }
+}
+
+/// The image portion of a patch.
+///
+/// The data here is stored as a flattened array of `SrgbaUnorm`. The size of
+/// data, if the image is well-formed, will be `width * height * 4`.
+///
+/// This is *most of the time* the data you care about.
+#[derive(Clone, Debug)]
+pub struct Image {
+    width: u32,
+    height: u32,
+    data: Vec<u8>,
+}
+
+impl Image {
+    /// The width of the image.
+    pub fn width(&self) -> u32 {
+        self.width
+    }
+
+    /// The height of the image.
+    pub fn height(&self) -> u32 {
+        self.height
+    }
+
+    /// Encodes an image as a png.
+    pub fn encode<W>(&self, writer: W) -> Result<(), png::EncodingError>
+    where
+        W: Write,
+    {
+        let mut encoder = png::Encoder::new(writer, self.width, self.height);
+        encoder.set_color(png::ColorType::Rgba);
+        encoder.set_depth(png::BitDepth::Eight);
+        encoder.set_source_gamma(png::ScaledFloat::new(1.0 / 2.2)); // 1.0 / 2.2, unscaled, but rounded
+        let source_chromaticities = png::SourceChromaticities::new(
+            // Using unscaled instantiation here
+            (0.31270, 0.32900),
+            (0.64000, 0.33000),
+            (0.30000, 0.60000),
+            (0.15000, 0.06000),
+        );
+        encoder.set_source_chromaticities(source_chromaticities);
+
+        let mut writer = encoder.write_header()?;
+        writer.write_image_data(&self.data)?;
+        writer.finish()
     }
 }
 

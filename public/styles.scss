@@ -50,3 +50,16 @@ button {
   position: absolute;
   z-index: -1;
 }
+
+.hidden {
+  display: none;
+}
+
+.link-button {
+  text-decoration: underline;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: inline;
+  background-color: inherit;
+}

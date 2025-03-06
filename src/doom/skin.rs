@@ -13,9 +13,14 @@ pub struct SkinDefine {
     /// spaces in UI, so `spingen` will replace any underscores with spaces.
     pub realname: String,
     /// The start color for spray replacement.
+    #[serde(default = "default_startcolor")]
     pub startcolor: u8,
     /// The preferred color of the racer.
     ///
     /// In `spingen`, it will automatically select this color.
-    pub perfcolor: String,
+    pub prefcolor: String,
+}
+
+fn default_startcolor() -> u8 {
+    96
 }

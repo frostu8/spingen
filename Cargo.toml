@@ -22,6 +22,11 @@ ahash = "0.8.11"
 im = "15.1.0"
 zip = { version = "2.2.3", default-features = false, features = ["deflate", "deflate-flate2", "deflate-zopfli", "deflate64", "lzma", "time", "chrono", "zstd"] }
 wad = { git = "https://codeberg.org/frostu8/wad.git" }
+png = "0.17.16"
+gloo = { version = "0.11.0", features = ["futures"] }
+web-sys = { version = "0.3", features = ["File", "FileList", "HtmlInputElement"] }
+wasm-bindgen-futures = "0.4.50"
+bytes = "1.10.1"
 
 # utils
 # strum = { version = "0.25", features = ["derive", "strum_macros"] }
