@@ -22,17 +22,23 @@ const END_OF_COLUMN: u8 = 0xFF;
 /// A patch.
 #[derive(Clone, Debug)]
 pub struct Patch {
-    /// The width of the patch.
-    pub width: usize,
-    /// The height of the patch.
-    pub height: usize,
     /// The left offset of the patch.
     pub left: i32,
     /// The top offset of the patch.
     pub top: i32,
-    /// The image data, represented as a flattened, 2D array of palette
-    /// indices.
-    pub image: Vec<u8>,
+    /// The image data.
+    pub image: Image,
+}
+
+/// The image portion of a patch.
+///
+/// The data here is stored as a flattened array of `SrgbaUnorm`. The size of
+/// data, if the image is well-formed, will be `width * height * 4`.
+#[derive(Clone, Debug)]
+pub struct Image {
+    pub width: usize,
+    pub height: usize,
+    pub data: Vec<u8>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -45,7 +51,15 @@ struct PatchHeader {
 
 impl Patch {
     /// Reads a patch.
-    pub fn read<R>(mut reader: R) -> Result<Patch, Report>
+    pub fn read<R>(reader: R) -> Result<Patch, Report>
+    where
+        R: Read + Seek,
+    {
+        Patch::read_with(reader, &Palette::default())
+    }
+
+    /// Reads a patch with a given palette.
+    pub fn read_with<R>(mut reader: R, palette: &Palette) -> Result<Patch, Report>
     where
         R: Read + Seek,
     {
@@ -56,15 +70,16 @@ impl Patch {
         let height = header.height as usize;
 
         // now read image data
-        let image = (0..width * height).map(|_| u8::MAX).collect::<Vec<u8>>();
-
-        let mut image = Patch {
-            width,
-            height,
-            left: header.left_offset as i32,
-            top: header.top_offset as i32,
-            image,
-        };
+        let mut data = (0..width * height)
+            .flat_map(|_| {
+                // make all transparent pixels cyan
+                // yes, I know cyan doesn't make it transparent, but this skips
+                // an indirecton for when flats are rendered later in geometry
+                let mut color = [0u8; 4];
+                palette.copy_color(255, &mut color[..3]);
+                color.into_iter()
+            })
+            .collect::<Vec<u8>>();
 
         // iterate over our posts
         for x in 0..width {
@@ -96,7 +111,13 @@ impl Patch {
                     let palette_ix: u8 = bincode::deserialize_from(&mut reader)?;
 
                     let color_offset = (x + y * header.width as usize) * 4;
-                    image.image[color_offset] = palette_ix;
+                    let color_data = &mut data[color_offset..color_offset + 4];
+
+                    // mark pixel as occupied
+                    color_data[3] = u8::MAX;
+
+                    // fill color data
+                    palette.copy_color(palette_ix as usize, &mut color_data[..3]);
                 }
 
                 // skip buffer byte
@@ -104,7 +125,18 @@ impl Patch {
             }
         }
 
-        Ok(image)
+        // create image
+        let image = Image {
+            width,
+            height,
+            data,
+        };
+
+        Ok(Patch {
+            left: header.left_offset as i32,
+            top: header.top_offset as i32,
+            image,
+        })
     }
 }
 
@@ -170,6 +202,20 @@ impl Palette {
         }
 
         Ok(Palette { colors })
+    }
+
+    /// Copies the color values of an index into the buffer as [`Srgba`].
+    ///
+    /// # Panics
+    /// Panics if `buf` is not len 3 or higher, or if `ix` is out of bounds.
+    pub fn copy_color(&self, ix: usize, buf: &mut [u8]) {
+        assert!(buf.len() >= 3);
+
+        let color = self[ix].to_srgba();
+
+        buf[0] = (color.red * 255.) as u8;
+        buf[1] = (color.green * 255.) as u8;
+        buf[2] = (color.blue * 255.) as u8;
     }
 }
 
