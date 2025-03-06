@@ -87,7 +87,7 @@ async fn load_pk3(
         .wrap_err(format!("failed to read file {:?}", file.name()))?;
 
     // open zip file
-    let cursor = Cursor::new(&data[..]);
+    let cursor = Cursor::new(data.clone());
     let mut zip = ZipArchive::new(cursor).wrap_err("zip file has invalid header")?;
 
     // find all S_SKIN defines
@@ -137,6 +137,7 @@ async fn load_pk3(
             .wrap_err(format!("invalid S_SKIN lump {:?}", entry.name()))?;
 
         skins.push(Skin::from(SkinData {
+            data: data.clone(),
             skin: skin_define,
             path,
         }));

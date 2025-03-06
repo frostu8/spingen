@@ -24,7 +24,7 @@ zip = { version = "2.2.3", default-features = false, features = ["deflate", "def
 wad = { git = "https://codeberg.org/frostu8/wad.git" }
 png = "0.17.16"
 gloo = { version = "0.11.0", features = ["futures"] }
-web-sys = { version = "0.3", features = ["File", "FileList", "HtmlInputElement"] }
+web-sys = { version = "0.3", features = ["File", "FileList", "HtmlInputElement", "Url"] }
 wasm-bindgen-futures = "0.4.50"
 bytes = "1.10.1"
 

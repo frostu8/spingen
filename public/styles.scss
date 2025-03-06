@@ -63,3 +63,27 @@ button {
   display: inline;
   background-color: inherit;
 }
+
+.skin-container {
+  display: flex;
+  flex-flow: row wrap;
+  justify-content: flex-start;
+}
+
+.skin-button {
+  width: 256px;
+  height: 256px;
+  margin: 0.5em;
+  padding: 0.5em 0.25em;
+  display: flex;
+  flex-flow: column nowrap;
+}
+
+.skin-button img {
+  flex-grow: 1;
+  image-rendering: pixelated;
+}
+
+.skin-button p {
+  margin: 0;
+}
