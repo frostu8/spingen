@@ -1,13 +1,11 @@
 //! ZDoom patches.
 
-use std::io::{Read, Seek, SeekFrom, Write};
+use std::io::{Read, Seek, SeekFrom};
 use std::ops::{Deref, DerefMut};
 
 use bevy_color::{Color, Srgba};
 
 use serde::{Deserialize, Deserializer};
-
-use eyre::Report;
 
 use derive_more::{Display, Error};
 
@@ -26,8 +24,14 @@ pub struct Patch {
     pub left: i32,
     /// The top offset of the patch.
     pub top: i32,
-    /// The image data.
-    pub image: Image,
+    /// The width of the patch.
+    pub width: u16,
+    /// The height of the patch.
+    pub height: u16,
+    /// The internal data of the patch.
+    ///
+    /// Stored as a 2D array.
+    pub data: Vec<Option<u8>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -40,15 +44,7 @@ struct PatchHeader {
 
 impl Patch {
     /// Reads a patch.
-    pub fn read<R>(reader: R) -> Result<Patch, Report>
-    where
-        R: Read + Seek,
-    {
-        Patch::read_with(reader, &Palette::default())
-    }
-
-    /// Reads a patch with a given palette.
-    pub fn read_with<R>(mut reader: R, palette: &Palette) -> Result<Patch, Report>
+    pub fn read<R>(mut reader: R) -> Result<Patch, Error>
     where
         R: Read + Seek,
     {
@@ -60,15 +56,8 @@ impl Patch {
 
         // now read image data
         let mut data = (0..width * height)
-            .flat_map(|_| {
-                // make all transparent pixels cyan
-                // yes, I know cyan doesn't make it transparent, but this skips
-                // an indirecton for when flats are rendered later in geometry
-                let mut color = [0u8; 4];
-                palette.copy_color(255, &mut color[..3]);
-                color.into_iter()
-            })
-            .collect::<Vec<u8>>();
+            .map(|_| None)
+            .collect::<Vec<Option<u8>>>();
 
         // iterate over our posts
         for x in 0..width {
@@ -99,14 +88,9 @@ impl Patch {
 
                     let palette_ix: u8 = bincode::deserialize_from(&mut reader)?;
 
-                    let color_offset = (x + y * header.width as usize) * 4;
-                    let color_data = &mut data[color_offset..color_offset + 4];
-
-                    // mark pixel as occupied
-                    color_data[3] = u8::MAX;
-
-                    // fill color data
-                    palette.copy_color(palette_ix as usize, &mut color_data[..3]);
+                    // fill palette index data
+                    let color_offset = x + y * width;
+                    data[color_offset] = Some(palette_ix);
                 }
 
                 // skip buffer byte
@@ -115,22 +99,18 @@ impl Patch {
         }
 
         // create image
-        let image = Image {
-            width: width as u32,
-            height: height as u32,
-            data,
-        };
-
         Ok(Patch {
             left: header.left_offset as i32,
             top: header.top_offset as i32,
-            image,
+            width: header.width,
+            height: header.height,
+            data,
         })
     }
 }
 
 /// Returns `false` if there are no more posts.
-fn next_post_offset<R>(reader: R, top_delta: &mut usize) -> Result<bool, Report>
+fn next_post_offset<R>(reader: R, top_delta: &mut usize) -> Result<bool, Error>
 where
     R: Read,
 {
@@ -152,54 +132,6 @@ where
     } else {
         // thjs is the last post
         Ok(false)
-    }
-}
-
-/// The image portion of a patch.
-///
-/// The data here is stored as a flattened array of `SrgbaUnorm`. The size of
-/// data, if the image is well-formed, will be `width * height * 4`.
-///
-/// This is *most of the time* the data you care about.
-#[derive(Clone, Debug)]
-pub struct Image {
-    width: u32,
-    height: u32,
-    data: Vec<u8>,
-}
-
-impl Image {
-    /// The width of the image.
-    pub fn width(&self) -> u32 {
-        self.width
-    }
-
-    /// The height of the image.
-    pub fn height(&self) -> u32 {
-        self.height
-    }
-
-    /// Encodes an image as a png.
-    pub fn encode<W>(&self, writer: W) -> Result<(), png::EncodingError>
-    where
-        W: Write,
-    {
-        let mut encoder = png::Encoder::new(writer, self.width, self.height);
-        encoder.set_color(png::ColorType::Rgba);
-        encoder.set_depth(png::BitDepth::Eight);
-        encoder.set_source_gamma(png::ScaledFloat::new(1.0 / 2.2)); // 1.0 / 2.2, unscaled, but rounded
-        let source_chromaticities = png::SourceChromaticities::new(
-            // Using unscaled instantiation here
-            (0.31270, 0.32900),
-            (0.64000, 0.33000),
-            (0.30000, 0.60000),
-            (0.15000, 0.06000),
-        );
-        encoder.set_source_chromaticities(source_chromaticities);
-
-        let mut writer = encoder.write_header()?;
-        writer.write_image_data(&self.data)?;
-        writer.finish()
     }
 }
 
@@ -286,6 +218,25 @@ impl Default for Palette {
 
         // only return first node
         Palette::from_bytes(&PLAYPAL[..PALETTE_COLORS * 3]).expect("valid default PLAYPAL")
+    }
+}
+
+/// An error for patch reading.
+#[derive(Debug, Display, Error)]
+pub enum Error {
+    Deser(bincode::Error),
+    Io(std::io::Error),
+}
+
+impl From<std::io::Error> for Error {
+    fn from(value: std::io::Error) -> Self {
+        Error::Io(value)
+    }
+}
+
+impl From<bincode::Error> for Error {
+    fn from(value: bincode::Error) -> Self {
+        Error::Deser(value)
     }
 }
 
