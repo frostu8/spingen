@@ -3,13 +3,13 @@
 use leptos::prelude::*;
 
 use crate::components::skin_button::SkinButton;
-use crate::skin::SkinData;
+use crate::skin::Skin;
 use crate::spray::Spray;
 
 /// The skin select menu.
 #[component]
 pub fn SkinSelect(
-    skins: impl Fn() -> im::Vector<SkinData> + Send + Sync + 'static,
+    skins: impl Fn() -> im::Vector<Skin> + Send + Sync + 'static,
     sprays: impl Into<Signal<im::Vector<Spray>>>,
 ) -> impl IntoView {
     let sprays = sprays.into();

@@ -1,39 +1,29 @@
 //! The image encoding utilities.
 
-use crate::doom::patch::{self, Palette, Patch, PALETTE_COLORS};
-use crate::skin::{SkinData, SpriteIndex};
+use crate::doom::patch::Palette;
+use crate::skin::{loader::Error, Skin};
 use crate::spray::Spray;
 
-use std::io::{Cursor, Read as _, Write};
+use std::io::Write;
 
 use bevy_color::{Color, ColorToPacked, Srgba};
 
-use derive_more::{Display, Error, From};
-
 use wad::Name;
-
-use bytes::Bytes;
-
-use zip::ZipArchive;
 
 /// An image encoder for a skin.
 #[derive(Debug)]
 pub struct Encoder<'a> {
-    skin_data: &'a SkinData,
-    zip: ZipArchive<Cursor<Bytes>>,
+    skin_data: &'a Skin,
     palette: Palette,
 }
 
 impl<'a> Encoder<'a> {
     /// Creates a new `Encoder`.
-    pub fn new(skin_data: &'a SkinData) -> Result<Encoder<'a>, Error> {
-        ZipArchive::new(Cursor::new(skin_data.data.clone()))
-            .map(|zip| Encoder {
-                skin_data,
-                zip,
-                palette: Palette::default(),
-            })
-            .map_err(Error::from)
+    pub fn new(skin_data: &'a Skin) -> Encoder<'a> {
+        Encoder {
+            skin_data,
+            palette: Palette::default(),
+        }
     }
 
     /// Overrides the palette.
@@ -53,30 +43,17 @@ impl<'a> Encoder<'a> {
 
     /// Gets a single sprite of the skin by full, qualified name, and encodes
     /// it as a bitmap.
-    pub fn sprite(&self, name: Name) -> Result<Image, Error> {
-        let mut zip = ZipArchive::new(Cursor::new(self.skin_data.data.clone()))?;
-
-        let path = self.skin_data.path.join(name.as_str());
-        let path = path.to_str().expect("path should always be valid str");
-        let mut entry = zip.by_name(path).map_err(|err| match err {
-            zip::result::ZipError::FileNotFound => Error::NotFound(name),
-            err => Error::Zip(err),
-        })?;
-
-        let mut buf = Vec::with_capacity(entry.size() as usize);
-        entry.read_to_end(&mut buf)?;
-
-        // load patch
-        let patch = Patch::read(Cursor::new(buf))?;
+    pub fn sprite(&mut self, name: Name) -> Result<Image, Error> {
+        let patch = self.skin_data.read_sprite(name)?;
 
         // encode as bitmap
         let mut image = Image::new_fill(patch.width, patch.height, Color::WHITE);
 
-        for (i, palette_ix) in patch.data.into_iter().enumerate() {
+        for (i, palette_ix) in patch.data.iter().enumerate() {
             let color_data = &mut image.data[i * 4..i * 4 + 4];
 
             if let Some(palette_ix) = palette_ix {
-                self.palette.copy_color(palette_ix as usize, color_data);
+                self.palette.copy_color(*palette_ix as usize, color_data);
             } else {
                 // encode transparent pixel
                 self.palette.copy_color(255, color_data);
@@ -85,6 +62,27 @@ impl<'a> Encoder<'a> {
         }
 
         Ok(image)
+    }
+
+    /// Gets a sprite index, and encodes it as a GIF.
+    pub fn sprite_gif<W>(&mut self, mut writer: W, name: Name) -> Result<(), Error>
+    where
+        W: Write,
+    {
+        // get all patches
+        let patches = self.skin_data.read_prefix(name.as_str())?;
+
+        if patches.len() == 0 {
+            return Err(Error::NotFound(name.to_string()));
+        }
+
+        // get first angle
+        //let forward_ix = patches.iter().position(|patch| patch.name().as_str())
+
+        // begin encoding a gif
+        //let mut gif = gif::Encoder::new(writer, self.)
+
+        todo!()
     }
 }
 
@@ -144,23 +142,6 @@ impl Image {
         let mut writer = encoder.write_header()?;
         writer.write_image_data(&self.data)?;
         writer.finish()
-    }
-}
-
-/// An error that can occur during encoding.
-#[derive(Debug, Display, Error, From)]
-pub enum Error {
-    Zip(zip::result::ZipError),
-    Io(std::io::Error),
-    Patch(patch::Error),
-    #[display("sprite \"{_0}\" not found")]
-    NotFound(#[error(not(source))] Name),
-}
-
-impl Error {
-    /// Checks if the error is a not found error.
-    pub fn not_found(&self) -> bool {
-        matches!(self, Error::NotFound(..))
     }
 }
 

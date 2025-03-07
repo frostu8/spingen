@@ -4,7 +4,7 @@ use leptos::prelude::*;
 use leptos_router::hooks::use_params;
 use leptos_router::params::Params;
 
-use crate::skin::SkinData;
+use crate::skin::Skin;
 use crate::spray::Spray;
 
 #[derive(Params, PartialEq)]
@@ -15,7 +15,7 @@ struct ShowParams {
 /// Shows a skin on the page.
 #[component]
 pub fn Show(
-    skins: impl Into<Signal<im::Vector<SkinData>>>,
+    skins: impl Into<Signal<im::Vector<Skin>>>,
     sprays: impl Into<Signal<im::Vector<Spray>>>,
 ) -> impl IntoView {
     let skins = skins.into();

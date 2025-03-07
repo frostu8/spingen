@@ -4,9 +4,8 @@ use leptos::prelude::*;
 use leptos_router::components::A;
 use web_sys::Url;
 
-use crate::doom::patch::Palette;
 use crate::image::Encoder;
-use crate::skin::SkinData;
+use crate::skin::Skin;
 use crate::spray::Spray;
 
 use gloo::file::Blob;
@@ -18,7 +17,7 @@ use wad::Name;
 use eyre::{Report, WrapErr};
 
 #[component]
-pub fn SkinButton(skin: SkinData, spray: impl Into<Signal<Spray>>) -> impl IntoView {
+pub fn SkinButton(skin: Skin, spray: impl Into<Signal<Spray>>) -> impl IntoView {
     let spray = spray.into();
     let skin_clone = skin.clone();
 
@@ -32,9 +31,7 @@ pub fn SkinButton(skin: SkinData, spray: impl Into<Signal<Spray>>) -> impl IntoV
 
         // create encoder
         let gen_thumbnail = || -> Result<String, Report> {
-            let encoder = Encoder::new(&skin_clone)
-                .wrap_err("failed to read pk3 archive")?
-                .with_spray(&spray);
+            let mut encoder = Encoder::new(&skin_clone).with_spray(&spray);
 
             // try to find asymmetric sprite first
             let sprite = encoder

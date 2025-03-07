@@ -4,13 +4,13 @@ use leptos::prelude::*;
 use leptos_router::nested_router::Outlet;
 
 use crate::components::skin_select::SkinSelect;
-use crate::skin::SkinData;
+use crate::skin::Skin;
 use crate::spray::Spray;
 
 /// Default Home Page
 #[component]
 pub fn Home(
-    skins: impl Fn() -> im::Vector<SkinData> + Send + Sync + 'static,
+    skins: impl Fn() -> im::Vector<Skin> + Send + Sync + 'static,
     sprays: impl Into<Signal<im::Vector<Spray>>>,
 ) -> impl IntoView {
     let sprays = sprays.into();
