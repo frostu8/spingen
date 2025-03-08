@@ -63,7 +63,7 @@ where
             >
                 <SkinShow
                     skin=move || skin.get().expect("valid skin").skin
-                    spray=move || spray.get().expect("valid spray")
+                    spray=move || spray.get().unwrap_or_default()
                     name=move || (name.get(), frame.get())
                 />
                 <div class="skin-show-controls">
