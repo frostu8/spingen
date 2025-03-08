@@ -78,7 +78,7 @@ main {
   object-fit: contain;
   flex-grow: 1;
   image-rendering: pixelated;
-}
+}use_drop_zone
 
 .skin-show p {
   padding-bottom: var(--size-6);
@@ -119,5 +119,13 @@ main {
 /* drop area shenanigans */
 #app-drop-area {
   position: absolute;
-  z-index: -1;
+  pointer-events: none;
+  top: 8em;
+  width: 100vw;
+  height: calc(100vh - 8em);
+  z-index: 1;
+}
+
+#app-drop-area.enabled {
+  pointer-events: all;
 }

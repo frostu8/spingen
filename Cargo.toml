@@ -24,10 +24,11 @@ zip = { version = "2.2.3", default-features = false, features = ["deflate", "def
 wad = { git = "https://codeberg.org/frostu8/wad.git" }
 png = "0.17.16"
 gloo = { version = "0.11.0", features = ["futures"] }
-web-sys = { version = "0.3", features = ["File", "FileList", "HtmlInputElement", "Url"] }
+web-sys = { version = "0.3", features = ["DataTransfer", "DragEvent", "File", "FileList", "HtmlInputElement", "Url"] }
 wasm-bindgen-futures = "0.4.50"
 bytes = "1.10.1"
 gif = "0.13.1"
+leptos-use = { version = "0.15.6", default-features = false, features = ["use_drop_zone"] }
 
 # utils
 # strum = { version = "0.25", features = ["derive", "strum_macros"] }

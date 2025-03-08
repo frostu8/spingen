@@ -4,16 +4,20 @@
 
 use leptos::prelude::*;
 
-//use crate::components::drop_area::DropArea;
+use crate::components::drop_area::DropArea;
 
 use web_sys::HtmlInputElement;
 
-use gloo::file::File;
+use gloo::{events::EventListener, file::File};
 
 #[component]
-pub fn Header(on_file: impl Fn(File) + Send + Sync + 'static) -> impl IntoView {
+pub fn Header<F>(on_file: F) -> impl IntoView
+where
+    F: Fn(File) + Clone + Send + Sync + 'static,
+{
     let file_dialog = NodeRef::new();
 
+    let on_file_clone = on_file.clone();
     let on_input_file = move |_| {
         // read from file
         let dialog: HtmlInputElement = file_dialog.get().expect("input node should exist");
@@ -24,12 +28,12 @@ pub fn Header(on_file: impl Fn(File) + Send + Sync + 'static) -> impl IntoView {
         for i in 0..files.length() {
             let file = files.get(i).expect("in bounds");
             let file = File::from(file);
-            on_file(file);
+            on_file_clone(file);
         }
     };
 
     view! {
-        //<DropArea/>
+        <DropArea on_file/>
         <header>
             <h3>spingen</h3>
             <p>
