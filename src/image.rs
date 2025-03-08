@@ -1,6 +1,6 @@
 //! The image encoding utilities.
 
-use crate::doom::patch::{Palette, PALETTE_COLORS};
+use crate::doom::patch::{Palette, Patch, PALETTE_COLORS};
 use crate::skin::{loader::Error, Skin, Sprite, SpriteAngle};
 use crate::spray::Spray;
 
@@ -44,62 +44,71 @@ impl<'a> Encoder<'a> {
     }
 
     /// Gets a single sprite of the skin by full, qualified name, and encodes
-    /// it as a bitmap.
-    pub fn sprite(&mut self, name: Name) -> Result<Image, Error> {
-        let patch = self.skin_data.read_sprite(name)?;
-        let image = sprite_to_image(&patch, &self.palette);
-
-        Ok(image)
-    }
-
-    /// Gets a sprite index, and encodes it as a GIF.
-    pub fn sprite_gif<W>(&mut self, writer: W, name: Name) -> Result<(), EncodeError>
+    /// it as a still PNG.
+    pub fn sprite<W>(&mut self, writer: W, name: Name) -> Result<(), EncodeError>
     where
         W: Write,
     {
-        let angles = &[
-            SpriteAngle::FORWARD,
-            SpriteAngle::RIGHT_FORWARD,
-            SpriteAngle::RIGHT,
-            SpriteAngle::RIGHT_BACKWARD,
-            SpriteAngle::BACKWARD,
-            SpriteAngle::LEFT_BACKWARD,
-            SpriteAngle::LEFT,
-            SpriteAngle::LEFT_FORWARD,
-        ];
+        let patch = self.skin_data.read(name)?;
 
-        if name.as_str().len() < 5 {
-            return Err(Error::NotFound(name.to_string()).into());
+        let mut data = (0..(patch.width as usize * patch.height as usize))
+            .flat_map(|_| {
+                let srgb: Srgba = Color::WHITE.into();
+                srgb.to_u8_array().into_iter()
+            })
+            .collect::<Vec<u8>>();
+
+        for (i, palette_ix) in patch.data.iter().enumerate() {
+            let color_data = &mut data[i * 4..i * 4 + 4];
+
+            if let Some(palette_ix) = palette_ix {
+                self.palette.copy_color(*palette_ix as usize, color_data);
+            } else {
+                // encode transparent pixel
+                self.palette.copy_color(255, color_data);
+                color_data[3] = 0;
+            }
         }
 
-        let frame = name[4];
-        let name = Name::from_bytes(&name[..4]).expect("valid subname");
+        let mut encoder = png::Encoder::new(writer, patch.width.into(), patch.height.into());
+        encoder.set_color(png::ColorType::Rgba);
+        encoder.set_depth(png::BitDepth::Eight);
+        encoder.set_source_gamma(png::ScaledFloat::new(1.0 / 2.2)); // 1.0 / 2.2, unscaled, but rounded
+        let source_chromaticities = png::SourceChromaticities::new(
+            // Using unscaled instantiation here
+            (0.31270, 0.32900),
+            (0.64000, 0.33000),
+            (0.30000, 0.60000),
+            (0.15000, 0.06000),
+        );
+        encoder.set_source_chromaticities(source_chromaticities);
+
+        let mut writer = encoder.write_header()?;
+        writer.write_image_data(&data)?;
+        writer.finish().map_err(From::from)
+    }
+
+    /// Gets a sprite index, and encodes it as an image.
+    pub fn sprite_gif<W>(&mut self, writer: W, name: Name, frame: u8) -> Result<(), EncodeError>
+    where
+        W: Write,
+    {
+        if name.as_str().len() < 4 {
+            return Err(Error::NotFound(name.to_string()).into());
+        }
 
         // get all patches
-        let patches = self.skin_data.read_prefix(name.as_str())?;
-
-        if patches.len() == 0 {
+        let mut angles = self.skin_data.iter_angles(&name, frame).collect::<Vec<_>>();
+        if angles.len() == 0 {
             return Err(Error::NotFound(name.to_string()).into());
         }
-
-        // get all angles
-        let mut angles = angles.into_iter().copied().filter_map(|angle| {
-            patches
-                .iter()
-                .filter_map(|patch| {
-                    if patch.identifier() == name {
-                        patch.provides(frame, angle).map(|mirror| (patch, mirror))
-                    } else {
-                        None
-                    }
-                })
-                .next()
-        });
+        angles.sort_by(|a, b| a.index.angle.cmp(&b.index.angle).reverse());
 
         // get first angle
-        let Some((forward, mirror_forward)) = angles.next() else {
+        let Some(spr2) = angles.pop() else {
             return Err(Error::NotFound(name.to_string()).into());
         };
+        let patch = self.skin_data.read(spr2.name)?;
 
         // begin encoding a gif
         let mut palette = [0u8; PALETTE_COLORS * 3];
@@ -108,22 +117,23 @@ impl<'a> Encoder<'a> {
             (&mut palette[i * 3..i * 3 + 3]).copy_from_slice(&color_bytes[..3]);
         }
 
-        let mut gif = gif::Encoder::new(writer, forward.width, forward.height, &palette)?;
+        let mut gif = gif::Encoder::new(writer, patch.width, patch.height, &palette)?;
         gif.write_extension(gif::ExtensionData::Repetitions(gif::Repeat::Infinite))?;
-        sprite_to_gif(&mut gif, forward, mirror_forward)?;
+        patch_to_gif_frame(&mut gif, &patch, spr2.mirror)?;
 
         // get other angles
-        for (sprite, mirror) in angles {
-            sprite_to_gif(&mut gif, sprite, mirror)?;
+        for spr2 in angles.into_iter().rev() {
+            let patch = self.skin_data.read(spr2.name)?;
+            patch_to_gif_frame(&mut gif, &patch, spr2.mirror)?;
         }
 
         Ok(())
     }
 }
 
-fn sprite_to_gif<W>(
+fn patch_to_gif_frame<W>(
     gif: &mut gif::Encoder<W>,
-    patch: &Sprite,
+    patch: &Patch,
     mirror: bool,
 ) -> Result<(), gif::EncodingError>
 where
@@ -160,83 +170,6 @@ where
     Ok(())
 }
 
-fn sprite_to_image(patch: &Sprite, palette: &Palette) -> Image {
-    let mut image = Image::new_fill(patch.width, patch.height, Color::WHITE);
-
-    for (i, palette_ix) in patch.data.iter().enumerate() {
-        let color_data = &mut image.data[i * 4..i * 4 + 4];
-
-        if let Some(palette_ix) = palette_ix {
-            palette.copy_color(*palette_ix as usize, color_data);
-        } else {
-            // encode transparent pixel
-            palette.copy_color(255, color_data);
-            color_data[3] = 0;
-        }
-    }
-
-    image
-}
-
-/// A bitmap.
-#[derive(Clone, Debug)]
-pub struct Image {
-    width: u16,
-    height: u16,
-    data: Vec<u8>,
-}
-
-impl Image {
-    /// Creates a new image, filled with a color.
-    pub fn new_fill(width: u16, height: u16, color: Color) -> Image {
-        let data = (0..(width as usize * height as usize))
-            .flat_map(|_| {
-                let srgb: Srgba = color.into();
-                srgb.to_u8_array().into_iter()
-            })
-            .collect::<Vec<u8>>();
-
-        Image {
-            width,
-            height,
-            data,
-        }
-    }
-
-    /// The width of the image.
-    pub fn width(&self) -> u16 {
-        self.width
-    }
-
-    /// The height of the image.
-    pub fn height(&self) -> u16 {
-        self.height
-    }
-
-    /// Encodes an image as a png.
-    pub fn to_png<W>(&self, writer: W) -> Result<(), EncodeError>
-    where
-        W: Write,
-    {
-        let mut encoder = png::Encoder::new(writer, self.width.into(), self.height.into());
-        encoder.set_color(png::ColorType::Rgba);
-        encoder.set_depth(png::BitDepth::Eight);
-        encoder.set_source_gamma(png::ScaledFloat::new(1.0 / 2.2)); // 1.0 / 2.2, unscaled, but rounded
-        let source_chromaticities = png::SourceChromaticities::new(
-            // Using unscaled instantiation here
-            (0.31270, 0.32900),
-            (0.64000, 0.33000),
-            (0.30000, 0.60000),
-            (0.15000, 0.06000),
-        );
-        encoder.set_source_chromaticities(source_chromaticities);
-
-        let mut writer = encoder.write_header()?;
-        writer.write_image_data(&self.data)?;
-        writer.finish().map_err(From::from)
-    }
-}
-
 /// An error for encoding.
 #[derive(Debug, Display, Error, From)]
 pub enum EncodeError {
@@ -245,6 +178,16 @@ pub enum EncodeError {
     Png(png::EncodingError),
     #[display("no angles to make gif")]
     NoAngles,
+}
+
+impl EncodeError {
+    pub fn not_found(&self) -> bool {
+        if let EncodeError::Loader(err) = self {
+            err.not_found()
+        } else {
+            false
+        }
+    }
 }
 
 /*

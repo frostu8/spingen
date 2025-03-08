@@ -152,6 +152,9 @@ main {
 
 .skin-show-controls {
   padding: var(--size-4) var(--size-6);
+  display: flex;
+  flex-flow: row nowrap;
+  gap: var(--size-2);
 }
 
 .hidden {

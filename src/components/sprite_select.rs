@@ -1,12 +1,8 @@
 //! Sprite selection menu.
 
-use ahash::HashSet;
-use eyre::WrapErr;
 use leptos::prelude::*;
 
 use crate::skin::Skin;
-
-use std::cmp::min;
 
 use wad::Name;
 
@@ -20,25 +16,7 @@ where
 {
     let sprites = Memo::new(move |_| {
         let skin = skin();
-
-        let sprites = match skin.list().wrap_err("failed to get sprite list") {
-            Ok(sprites) => sprites,
-            Err(err) => {
-                leptos::logging::error!("{:?}", err);
-                vec![]
-            }
-        };
-
-        let mut sprites = sprites
-            .into_iter()
-            .map(|name| {
-                let len = min(4, name.as_str().len());
-                Name::from_bytes(&name[..len]).expect("valid subname")
-            })
-            // deduplicate
-            .collect::<HashSet<_>>()
-            .into_iter()
-            .collect::<Vec<_>>();
+        let mut sprites = skin.iter().collect::<Vec<_>>();
 
         sprites.sort();
         sprites

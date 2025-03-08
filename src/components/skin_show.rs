@@ -22,7 +22,7 @@ pub fn SkinShow<S, SP, N>(skin: S, spray: SP, name: N) -> impl IntoView
 where
     S: Fn() -> Skin + Send + Sync + 'static,
     SP: Fn() -> Spray + Send + Sync + 'static,
-    N: Fn() -> Name + Send + Sync + 'static,
+    N: Fn() -> (Name, u8) + Send + Sync + 'static,
 {
     let memoized_spray = Memo::new(move |_| spray());
 
@@ -31,7 +31,7 @@ where
         let spray = memoized_spray.get();
 
         let skin = skin();
-        let name = name();
+        let (name, frame) = name();
 
         // free old src
         if let Some(src) = old_img_src {
@@ -44,7 +44,7 @@ where
             // generate new gif
             let mut buf = Vec::new();
             encoder
-                .sprite_gif(Cursor::new(&mut buf), name)
+                .sprite_gif(Cursor::new(&mut buf), name, frame)
                 .wrap_err("failed to encode gif")?;
 
             let blob = Blob::new_with_options(&buf[..], Some("image/gif"));

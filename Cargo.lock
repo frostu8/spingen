@@ -2287,6 +2287,7 @@ dependencies = [
  "log",
  "png",
  "serde",
+ "thunderdome",
  "wad",
  "wasm-bindgen",
  "wasm-bindgen-futures",
@@ -2423,6 +2424,12 @@ checksum = "e4ef8bf264c6ae02a065a4a16553283f0656bd6266fc1fcb09fd2e6b5e91427b"
 dependencies = [
  "pin-project-lite",
 ]
+
+[[package]]
+name = "thunderdome"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "92e170f93360bf9ae6fe3c31116bbf27adb1d054cedd6bc3d7857e34f2d98d0b"
 
 [[package]]
 name = "time"

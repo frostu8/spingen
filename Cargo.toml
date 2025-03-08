@@ -29,6 +29,7 @@ wasm-bindgen-futures = "0.4.50"
 bytes = "1.10.1"
 gif = "0.13.1"
 leptos-use = { version = "0.15.6", default-features = false, features = ["use_drop_zone"] }
+thunderdome = "0.6.1"
 
 # utils
 # strum = { version = "0.25", features = ["derive", "strum_macros"] }

@@ -34,23 +34,24 @@ pub fn SkinButton(skin: Skin, spray: impl Into<Signal<Spray>>) -> impl IntoView 
             let mut encoder = Encoder::new(&skin_clone).with_spray(&spray);
 
             // try to find asymmetric sprite first
+            let mut buf = Vec::new();
             let sprite = encoder
-                .sprite("STINA2".parse::<Name>().expect("valid name"))
+                .sprite(
+                    Cursor::new(&mut buf),
+                    "STINA2".parse::<Name>().expect("valid name"),
+                )
                 .or_else(|err| {
                     if err.not_found() {
                         // try to get other sprite
-                        encoder.sprite("STINA2A8".parse::<Name>().expect("valid name"))
+                        encoder.sprite(
+                            Cursor::new(&mut buf),
+                            "STINA2A8".parse::<Name>().expect("valid name"),
+                        )
                     } else {
                         Err(err)
                     }
                 })
-                .wrap_err("failed to get thumbnail")?;
-
-            // if sprite found, encode into a blob
-            let mut buf = Vec::new();
-            sprite
-                .to_png(Cursor::new(&mut buf))
-                .wrap_err("failed to encode png of sprite")?;
+                .wrap_err("failed to encode thumbnail")?;
 
             let blob = Blob::new_with_options(&buf[..], Some("image/png"));
 

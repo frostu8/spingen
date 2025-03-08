@@ -1,8 +1,10 @@
 //! Discovers and compiles all skins.
 
 pub mod loader;
+pub mod spr2;
 
 use crate::doom::{patch::Patch as DoomPatch, skin::SkinDefine};
+use spr2::Spr2;
 
 use loader::{Error as LoaderError, SkinLoader};
 
@@ -22,25 +24,36 @@ use derive_more::{Deref, Display};
 pub struct Skin {
     /// The loader allocated for this skin.
     loader: Arc<Box<dyn SkinLoader>>,
+    /// The skin index
+    index: Arc<spr2::Index>,
     /// The skin description.
     #[deref]
     skin: SkinDefine,
 }
 
 impl Skin {
-    /// Reads a sprite from the skin.
-    pub fn read_sprite(&self, name: Name) -> Result<Sprite, LoaderError> {
-        self.loader.read_sprite(name)
+    /// Reads a patch from the skin.
+    pub fn read(&self, name: Name) -> Result<DoomPatch, LoaderError> {
+        self.loader.read(name)
     }
 
-    /// Reads a set of sprites by prefix.
-    pub fn read_prefix(&self, prefix: &str) -> Result<Vec<Sprite>, LoaderError> {
-        self.loader.read_prefix(prefix)
+    /// Iterates over all unique skin sprite names.
+    pub fn iter(&self) -> impl Iterator<Item = Name> {
+        self.index.iter()
     }
 
-    /// Lists all the sprites supported by the skin.
-    pub fn list(&self) -> Result<Vec<Name>, LoaderError> {
-        self.loader.list()
+    /// Iterates over all unique frames of a sprite.
+    pub fn iter_frames(&self, name: &Name) -> impl Iterator<Item = u8> {
+        self.index.iter_frames(name)
+    }
+
+    /// Iterates over all unique sprite angles.
+    pub fn iter_angles<'a>(
+        &'a self,
+        name: &'a Name,
+        frame: u8,
+    ) -> impl Iterator<Item = &'a Spr2> + 'a {
+        self.index.iter_angles(name, frame)
     }
 }
 
@@ -131,7 +144,7 @@ pub struct SpriteFrame {
 }
 
 /// A sprite angle.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SpriteAngle(NonZeroU8);
 
 impl SpriteAngle {
@@ -153,6 +166,11 @@ impl SpriteAngle {
     pub const LEFT: SpriteAngle = SpriteAngle(unsafe { NonZeroU8::new_unchecked(b'7') });
     /// The left forward angle.
     pub const LEFT_FORWARD: SpriteAngle = SpriteAngle(unsafe { NonZeroU8::new_unchecked(b'8') });
+
+    /// Unwraps the inner `u8`.
+    pub fn into_inner(self) -> u8 {
+        self.0.get()
+    }
 
     /// Creates a `SpriteAngle` from an ascii char.
     ///

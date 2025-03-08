@@ -4,10 +4,10 @@ use std::io::{self, Cursor, Read};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use crate::doom::patch::{self, Patch as DoomPatch};
+use crate::doom::patch::{self, Patch};
 use crate::doom::{skin::SkinDefine, soc};
 
-use super::{Skin, Sprite, SpriteName};
+use super::{spr2, Skin, SpriteName};
 
 use ahash::{HashMap, HashMapExt};
 
@@ -20,14 +20,8 @@ use zip::ZipArchive;
 
 /// A skin loader type.
 pub trait SkinLoader: Send + Sync + 'static {
-    /// Reads a patch from the pack.
-    fn read_sprite(&self, name: Name) -> Result<Sprite, Error>;
-
-    /// Reads a set of patches from the pack by sprite prefix.
-    fn read_prefix(&self, prefix: &str) -> Result<Vec<Sprite>, Error>;
-
-    /// Iters over all the patches of a sprite.
-    fn list(&self) -> Result<Vec<Name>, Error>;
+    /// Reads a patch from the skin.
+    fn read(&self, name: Name) -> Result<Patch, Error>;
 }
 
 #[derive(Debug, Clone)]
@@ -35,6 +29,7 @@ struct Pk3Skin {
     skin: SkinDefine,
     path: PathBuf,
     sprites: HashMap<Name, usize>,
+    index: Arc<spr2::Index>,
 }
 
 /// A pk3 loader.
@@ -77,7 +72,7 @@ impl Pk3Loader {
             let mut entry = zip.by_index(file_index)?;
 
             // get path prefix
-            let path = Path::new(entry.name())
+            let skin_path = Path::new(entry.name())
                 .parent()
                 .map(|prefix| PathBuf::from(prefix))
                 .expect("path should have prefix");
@@ -91,23 +86,18 @@ impl Pk3Loader {
             let mut parser = soc::Parser::new(&s_skin);
             let skin_define = parser
                 .deserialize::<SkinDefine>()
-                .map_err(|err| Error::Deser(path.clone(), err))?;
-
-            // create skin
-            let mut skin = Pk3Skin {
-                skin: skin_define,
-                path,
-                sprites: HashMap::new(),
-            };
+                .map_err(|err| Error::Deser(skin_path.clone(), err))?;
 
             // read all related sprites
+            let mut index = spr2::Index::default();
+            let mut sprites = HashMap::default();
             let mut in_sounds = false;
 
             for i in 0..zip.len() {
                 let entry = zip.by_index_raw(i)?;
                 let path = Path::new(entry.name());
 
-                if let Ok(name) = path.strip_prefix(&skin.path) {
+                if let Ok(name) = path.strip_prefix(&skin_path) {
                     let Some(name) = name
                         .to_str()
                         .map(|name| {
@@ -135,13 +125,24 @@ impl Pk3Loader {
                         "S_SKIN" => (),
                         _ if in_sounds => (),
                         _ => {
-                            skin.sprites.insert(name, i);
+                            sprites.insert(name, i);
+                            if let Err(err) = index.add(name) {
+                                leptos::logging::warn!("{:?}", err);
+                            }
                         }
                     }
                 }
             }
 
-            skins.insert(skin.skin.name.clone(), skin);
+            skins.insert(
+                skin_define.name.clone(),
+                Pk3Skin {
+                    skin: skin_define,
+                    path: skin_path,
+                    sprites,
+                    index: Arc::new(index),
+                },
+            );
         }
 
         Ok(Pk3Loader {
@@ -157,6 +158,7 @@ impl Pk3Loader {
                 inner: self.clone(),
                 name: name.to_owned(),
             })),
+            index: skin.index.clone(),
             skin: skin.skin.clone(),
         })
     }
@@ -170,7 +172,7 @@ struct Pk3SkinLoader {
 }
 
 impl SkinLoader for Pk3SkinLoader {
-    fn read_sprite(&self, name: Name) -> Result<Sprite, Error> {
+    fn read(&self, name: Name) -> Result<Patch, Error> {
         let name = SpriteName::try_from(name)?;
 
         let mut zip = self.inner.inner.clone();
@@ -185,33 +187,7 @@ impl SkinLoader for Pk3SkinLoader {
         let mut buf = Vec::with_capacity(entry.size() as usize);
         entry.read_to_end(&mut buf)?;
 
-        Ok(Sprite {
-            name,
-            patch: DoomPatch::read(Cursor::new(buf))?,
-        })
-    }
-
-    fn read_prefix(&self, prefix: &str) -> Result<Vec<Sprite>, Error> {
-        let skin = self.skins.get(&self.name).expect("valid skin");
-
-        // index skin
-        let names = skin
-            .sprites
-            .keys()
-            .filter(|name| name.as_str().starts_with(prefix))
-            .copied()
-            .collect::<Vec<_>>();
-
-        names
-            .into_iter()
-            .map(|name| self.read_sprite(name))
-            .collect()
-    }
-
-    fn list(&self) -> Result<Vec<Name>, Error> {
-        let skin = self.skins.get(&self.name).expect("valid skin");
-
-        Ok(skin.sprites.keys().copied().collect())
+        Patch::read(Cursor::new(buf)).map_err(Error::from)
     }
 }
 
