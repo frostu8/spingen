@@ -29,7 +29,7 @@ pub fn App() -> impl IntoView {
     provide_meta_context();
 
     // the list of loaded sprays
-    let (sprays, set_sprays) = signal(sprays());
+    let (sprays, _set_sprays) = signal(sprays());
 
     // the raw skin datas, this will be used to create the normal skin datas
     let (skins, set_skins) = signal(im::Vector::<Skin>::new());

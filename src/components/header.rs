@@ -8,7 +8,7 @@ use crate::components::drop_area::DropArea;
 
 use web_sys::HtmlInputElement;
 
-use gloo::{events::EventListener, file::File};
+use gloo::file::File;
 
 #[component]
 pub fn Header<F>(on_file: F) -> impl IntoView

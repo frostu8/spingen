@@ -34,7 +34,7 @@ pub fn Show(
     });
 
     let (spray, set_spray) = signal(Spray::default());
-    let (name, set_name) = signal(Name::from_bytes(b"STINA").expect("valid name"));
+    let (name, _set_name) = signal(Name::from_bytes(b"STINA").expect("valid name"));
 
     // create an effect for initialization
     Effect::new(move |_| {
