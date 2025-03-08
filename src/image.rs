@@ -1,7 +1,7 @@
 //! The image encoding utilities.
 
 use crate::doom::patch::{Palette, Patch, PALETTE_COLORS};
-use crate::skin::{loader::Error, Skin, Sprite, SpriteAngle};
+use crate::skin::{loader::Error, Skin};
 use crate::spray::Spray;
 
 use std::io::Write;
@@ -102,12 +102,18 @@ impl<'a> Encoder<'a> {
         if angles.len() == 0 {
             return Err(Error::NotFound(name.to_string()).into());
         }
+
         angles.sort_by(|a, b| a.index.angle.cmp(&b.index.angle).reverse());
 
         // get first angle
         let Some(spr2) = angles.pop() else {
             return Err(Error::NotFound(name.to_string()).into());
         };
+        if angles.len() == 0 {
+            // create still png
+            return self.sprite(writer, spr2.name);
+        }
+
         let patch = self.skin_data.read(spr2.name)?;
 
         // begin encoding a gif

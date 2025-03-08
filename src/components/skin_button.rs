@@ -35,7 +35,7 @@ pub fn SkinButton(skin: Skin, spray: impl Into<Signal<Spray>>) -> impl IntoView 
 
             // try to find asymmetric sprite first
             let mut buf = Vec::new();
-            let sprite = encoder
+            encoder
                 .sprite(
                     Cursor::new(&mut buf),
                     "STINA2".parse::<Name>().expect("valid name"),
