@@ -34,7 +34,7 @@ where
 
     view! {
         <header>
-            <h3>spingen</h3>
+            <h3>{ "spin.ringrace.rs" }</h3>
             <p>
                 { "Show off your racer!" }
                 <br/>
