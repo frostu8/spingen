@@ -79,6 +79,10 @@ html {
     --surface-shadow: var(--surface-shadow-dark);
     --shadow-strength: var(--shadow-strength-dark);
   }
+
+  svg {
+    filter: invert(100%) sepia(100%) saturate(0%) hue-rotate(343deg) brightness(103%) contrast(101%);
+  }
 }
 
 body {
@@ -94,6 +98,14 @@ header {
   top: 0;
   left: 0;
   height: 8em;
+
+  a {
+    margin: 0 var(--size-4);
+  }
+
+  .filler {
+    flex-grow: 1;
+  }
 }
 
 .buttons {
