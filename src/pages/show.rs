@@ -5,7 +5,7 @@ use leptos::prelude::*;
 use leptos_router::hooks::use_params;
 use leptos_router::params::Params;
 
-use crate::components::skin_show::SkinShow;
+use crate::components::{skin_show::SkinShow, sprite_select::SpriteSelect};
 use crate::skin::Skin;
 use crate::spray::Spray;
 
@@ -34,7 +34,7 @@ pub fn Show(
     });
 
     let (spray, set_spray) = signal(Spray::default());
-    let (name, _set_name) = signal(Name::from_bytes(b"STINA").expect("valid name"));
+    let (name, set_name) = signal(Name::from_bytes(b"STINA").expect("valid name"));
 
     // create an effect for initialization
     Effect::new(move |_| {
@@ -59,10 +59,24 @@ pub fn Show(
                 when=move || skin.with(|skin| skin.is_some())
             >
                 <SkinShow
-                    skin={ move || skin.get().expect("valid skin") }
-                    spray={ move || spray.get() }
-                    name
+                    skin=move || skin.get().expect("valid skin")
+                    spray=move || spray.get()
+                    name=move || {
+                        // this appends b'A' to the end of the name for proper
+                        // rendering
+                        let name = name.get();
+                        let mut data = [b'A'; 5];
+                        (&mut data[..4]).copy_from_slice(&name[..4]);
+                        Name::from_bytes(&data).expect("valid subname")
+                    }
                 />
+                <div class="skin-show-controls">
+                    <SpriteSelect
+                        skin=move || skin.get().expect("valid skin")
+                        on_change=move |new_name| set_name(new_name)
+                        value=move || name.get()
+                    />
+                </div>
                 <p>
                     { "To save this: Right-click → Save Image As" }
                     <br/>

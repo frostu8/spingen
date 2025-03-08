@@ -37,6 +37,11 @@ impl Skin {
     pub fn read_prefix(&self, prefix: &str) -> Result<Vec<Sprite>, LoaderError> {
         self.loader.read_prefix(prefix)
     }
+
+    /// Lists all the sprites supported by the skin.
+    pub fn list(&self) -> Result<Vec<Name>, LoaderError> {
+        self.loader.list()
+    }
 }
 
 impl Debug for Skin {
@@ -130,6 +135,8 @@ pub struct SpriteFrame {
 pub struct SpriteAngle(NonZeroU8);
 
 impl SpriteAngle {
+    /// The "all" angle.
+    pub const ALL: SpriteAngle = SpriteAngle(unsafe { NonZeroU8::new_unchecked(b'0') });
     /// The forward angle.
     pub const FORWARD: SpriteAngle = SpriteAngle(unsafe { NonZeroU8::new_unchecked(b'1') });
     /// The right forward angle.
@@ -193,12 +200,14 @@ impl Sprite {
     /// The boolean returned will be `true` if the sprite must be mirrored to
     /// produce the angle.
     pub fn provides(&self, frame: u8, angle: SpriteAngle) -> Option<bool> {
-        if self.name.frame().angle == angle && self.name.frame().frame == frame {
+        // terrible naming choices were made
+        let f = self.name.frame();
+        if (f.angle == angle || f.angle == SpriteAngle::ALL) && f.frame == frame {
             Some(false)
         } else if self
             .name
             .mirrored_frame()
-            .map(|f| f.angle == angle && f.frame == frame)
+            .map(|f| (f.angle == angle || f.angle == SpriteAngle::ALL) && f.frame == frame)
             .unwrap_or_default()
         {
             Some(true)

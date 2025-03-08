@@ -25,6 +25,9 @@ pub trait SkinLoader: Send + Sync + 'static {
 
     /// Reads a set of patches from the pack by sprite prefix.
     fn read_prefix(&self, prefix: &str) -> Result<Vec<Sprite>, Error>;
+
+    /// Iters over all the patches of a sprite.
+    fn list(&self) -> Result<Vec<Name>, Error>;
 }
 
 #[derive(Debug, Clone)]
@@ -42,13 +45,31 @@ impl Pk3Skin {
         self.sprites.get_or_try_init(|| -> Result<_, Error> {
             let mut sprites = HashMap::<Name, usize>::new();
 
+            let mut in_sounds = false;
+
             for i in 0..inner.len() {
                 let entry = inner.by_index_raw(i)?;
                 let path = Path::new(entry.name());
 
                 if let Ok(name) = path.strip_prefix(&self.path) {
-                    if let Some(name) = name.to_str().and_then(|s| s.parse::<Name>().ok()) {
-                        sprites.insert(name, i);
+                    let Some(name) = name.to_str().and_then(|s| s.parse::<Name>().ok()) else {
+                        continue;
+                    };
+
+                    if name.as_str().len() == 0 {
+                        // skip the folder containing the skin
+                        continue;
+                    }
+
+                    match name.as_str() {
+                        "DS_START" => in_sounds = true,
+                        "DS_END" => in_sounds = false,
+                        // skip skin lump
+                        "S_SKIN" => (),
+                        _ if in_sounds => (),
+                        _ => {
+                            sprites.insert(name, i);
+                        }
                     }
                 }
             }
@@ -187,6 +208,13 @@ impl SkinLoader for Pk3SkinLoader {
             .into_iter()
             .map(|name| self.read_sprite(name))
             .collect()
+    }
+
+    fn list(&self) -> Result<Vec<Name>, Error> {
+        let mut zip = self.inner.inner.clone();
+        let skin = self.skins.get(&self.name).expect("valid skin");
+
+        Ok(skin.sprites(&mut zip)?.keys().copied().collect())
     }
 }
 

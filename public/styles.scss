@@ -147,7 +147,11 @@ main {
 }
 
 .skin-show p {
-  padding-bottom: var(--size-6);
+  margin: var(--size-5);
+}
+
+.skin-show-controls {
+  padding: var(--size-4) var(--size-6);
 }
 
 .hidden {
