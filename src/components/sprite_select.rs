@@ -56,10 +56,51 @@ where
                 key=move |k| *k
                 children=move |k| {
                     view! {
-                        <option value=k.to_string()>{ k.as_str()[..4].to_string() }</option>
+                        <option value=k.to_string()>{ as_human_readable(&k) }</option>
                     }
                 }
             />
         </select>
+    }
+}
+
+fn as_human_readable(name: &Name) -> String {
+    match name.as_str() {
+        "STIN" => String::from("Still"),
+        "STIL" => String::from("Still Left"),
+        "STIR" => String::from("Still Right"),
+        "STGL" => String::from("Still Left (glance back)"),
+        "STGR" => String::from("Still Right (glance back)"),
+        "STLL" => String::from("Still Left (look back)"),
+        "STLR" => String::from("Still Right (look back)"),
+        "SLWN" => String::from("Slow Driving"),
+        "SLWL" => String::from("Slow Driving Left"),
+        "SLWR" => String::from("Slow Driving Right"),
+        "SLGL" => String::from("Slow Driving Left (glance back)"),
+        "SLGR" => String::from("Slow Driving Right (glance back)"),
+        "SLLL" => String::from("Slow Driving Left (look back)"),
+        "SLLR" => String::from("Slow Driving Right (look back)"),
+        "FSTN" => String::from("Fast Driving"),
+        "FSTL" => String::from("Fast Driving Left"),
+        "FSTR" => String::from("Fast Driving Right"),
+        "FSGL" => String::from("Fast Driving Left (glance back)"),
+        "FSGR" => String::from("Fast Driving Right (glance back)"),
+        "FSLL" => String::from("Fast Driving Left (look back)"),
+        "FSLR" => String::from("Fast Driving Right (look back)"),
+        "DRLN" => String::from("Drifting Left, Steering Neutral"),
+        "DRLO" => String::from("Drifting Left, Steering Outwards"),
+        "DRLI" => String::from("Drifting Left, Steering Inwards"),
+        "DRRN" => String::from("Drifting Right, Steering Neutral"),
+        "DRRO" => String::from("Drifting Right, Steering Outwards"),
+        "DRRI" => String::from("Drifting Right, Steering Inwards"),
+        "SPIN" => String::from("Spinout"),
+        "DEAD" => String::from("Dead"),
+        "SIGN" => String::from("Finish Signpost"),
+        "SIGL" => String::from("Finish Signpost, Ironman Perfect"),
+        "SSIG" => String::from("\"working designs\" Signpost"),
+        "XTRA" => String::from("Wanted"),
+        "TALK" => String::from("Dialogue Icon"),
+        // wtf is this spr2
+        name => String::from(name),
     }
 }

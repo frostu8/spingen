@@ -1,8 +1,8 @@
 //! Different loaders.
 
-use std::io::{self, Cursor, Read, Seek};
+use std::io::{self, Cursor, Read};
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, OnceLock};
+use std::sync::Arc;
 
 use crate::doom::patch::{self, Patch as DoomPatch};
 use crate::doom::{skin::SkinDefine, soc};
@@ -34,49 +34,7 @@ pub trait SkinLoader: Send + Sync + 'static {
 struct Pk3Skin {
     skin: SkinDefine,
     path: PathBuf,
-    sprites: OnceLock<HashMap<Name, usize>>,
-}
-
-impl Pk3Skin {
-    fn sprites<R>(&self, inner: &mut ZipArchive<R>) -> Result<&HashMap<Name, usize>, Error>
-    where
-        R: Read + Seek,
-    {
-        self.sprites.get_or_try_init(|| -> Result<_, Error> {
-            let mut sprites = HashMap::<Name, usize>::new();
-
-            let mut in_sounds = false;
-
-            for i in 0..inner.len() {
-                let entry = inner.by_index_raw(i)?;
-                let path = Path::new(entry.name());
-
-                if let Ok(name) = path.strip_prefix(&self.path) {
-                    let Some(name) = name.to_str().and_then(|s| s.parse::<Name>().ok()) else {
-                        continue;
-                    };
-
-                    if name.as_str().len() == 0 {
-                        // skip the folder containing the skin
-                        continue;
-                    }
-
-                    match name.as_str() {
-                        "DS_START" => in_sounds = true,
-                        "DS_END" => in_sounds = false,
-                        // skip skin lump
-                        "S_SKIN" => (),
-                        _ if in_sounds => (),
-                        _ => {
-                            sprites.insert(name, i);
-                        }
-                    }
-                }
-            }
-
-            Ok(sprites)
-        })
-    }
+    sprites: HashMap<Name, usize>,
 }
 
 /// A pk3 loader.
@@ -127,6 +85,7 @@ impl Pk3Loader {
             // read entry to file
             let mut s_skin = String::with_capacity(entry.size() as usize);
             entry.read_to_string(&mut s_skin)?;
+            drop(entry);
 
             // parse entry
             let mut parser = soc::Parser::new(&s_skin);
@@ -134,14 +93,55 @@ impl Pk3Loader {
                 .deserialize::<SkinDefine>()
                 .map_err(|err| Error::Deser(path.clone(), err))?;
 
-            skins.insert(
-                skin_define.name.clone(),
-                Pk3Skin {
-                    skin: skin_define,
-                    path,
-                    sprites: OnceLock::default(),
-                },
-            );
+            // create skin
+            let mut skin = Pk3Skin {
+                skin: skin_define,
+                path,
+                sprites: HashMap::new(),
+            };
+
+            // read all related sprites
+            let mut in_sounds = false;
+
+            for i in 0..zip.len() {
+                let entry = zip.by_index_raw(i)?;
+                let path = Path::new(entry.name());
+
+                if let Ok(name) = path.strip_prefix(&skin.path) {
+                    let Some(name) = name
+                        .to_str()
+                        .map(|name| {
+                            if let Some(ix) = name.rfind('.') {
+                                // strip ext
+                                &name[..ix]
+                            } else {
+                                name
+                            }
+                        })
+                        .and_then(|s| s.parse::<Name>().ok())
+                    else {
+                        continue;
+                    };
+
+                    if name.as_str().len() == 0 {
+                        // skip the folder containing the skin
+                        continue;
+                    }
+
+                    match name.as_str() {
+                        "DS_START" => in_sounds = true,
+                        "DS_END" => in_sounds = false,
+                        // skip skin lump
+                        "S_SKIN" => (),
+                        _ if in_sounds => (),
+                        _ => {
+                            skin.sprites.insert(name, i);
+                        }
+                    }
+                }
+            }
+
+            skins.insert(skin.skin.name.clone(), skin);
         }
 
         Ok(Pk3Loader {
@@ -176,12 +176,11 @@ impl SkinLoader for Pk3SkinLoader {
         let mut zip = self.inner.inner.clone();
         let skin = self.skins.get(&self.name).expect("valid skin");
 
-        let path = skin.path.join(name.as_str());
-        let path = path.to_str().expect("path should always be valid str");
-        let mut entry = zip.by_name(path).map_err(|err| match err {
-            zip::result::ZipError::FileNotFound => Error::NotFound(name.to_string()),
-            err => Error::Zip(err),
-        })?;
+        let Some(entry_ix) = skin.sprites.get(&name.name).copied() else {
+            return Err(Error::NotFound(name.to_string()));
+        };
+
+        let mut entry = zip.by_index(entry_ix).expect("valid entry");
 
         let mut buf = Vec::with_capacity(entry.size() as usize);
         entry.read_to_end(&mut buf)?;
@@ -193,12 +192,11 @@ impl SkinLoader for Pk3SkinLoader {
     }
 
     fn read_prefix(&self, prefix: &str) -> Result<Vec<Sprite>, Error> {
-        let mut zip = self.inner.inner.clone();
         let skin = self.skins.get(&self.name).expect("valid skin");
 
         // index skin
         let names = skin
-            .sprites(&mut zip)?
+            .sprites
             .keys()
             .filter(|name| name.as_str().starts_with(prefix))
             .copied()
@@ -211,10 +209,9 @@ impl SkinLoader for Pk3SkinLoader {
     }
 
     fn list(&self) -> Result<Vec<Name>, Error> {
-        let mut zip = self.inner.inner.clone();
         let skin = self.skins.get(&self.name).expect("valid skin");
 
-        Ok(skin.sprites(&mut zip)?.keys().copied().collect())
+        Ok(skin.sprites.keys().copied().collect())
     }
 }
 
