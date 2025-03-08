@@ -50,42 +50,7 @@ impl<'a> Encoder<'a> {
         W: Write,
     {
         let patch = self.skin_data.read(name)?;
-
-        let mut data = (0..(patch.width as usize * patch.height as usize))
-            .flat_map(|_| {
-                let srgb: Srgba = Color::WHITE.into();
-                srgb.to_u8_array().into_iter()
-            })
-            .collect::<Vec<u8>>();
-
-        for (i, palette_ix) in patch.data.iter().enumerate() {
-            let color_data = &mut data[i * 4..i * 4 + 4];
-
-            if let Some(palette_ix) = palette_ix {
-                self.palette.copy_color(*palette_ix as usize, color_data);
-            } else {
-                // encode transparent pixel
-                self.palette.copy_color(255, color_data);
-                color_data[3] = 0;
-            }
-        }
-
-        let mut encoder = png::Encoder::new(writer, patch.width.into(), patch.height.into());
-        encoder.set_color(png::ColorType::Rgba);
-        encoder.set_depth(png::BitDepth::Eight);
-        encoder.set_source_gamma(png::ScaledFloat::new(1.0 / 2.2)); // 1.0 / 2.2, unscaled, but rounded
-        let source_chromaticities = png::SourceChromaticities::new(
-            // Using unscaled instantiation here
-            (0.31270, 0.32900),
-            (0.64000, 0.33000),
-            (0.30000, 0.60000),
-            (0.15000, 0.06000),
-        );
-        encoder.set_source_chromaticities(source_chromaticities);
-
-        let mut writer = encoder.write_header()?;
-        writer.write_image_data(&data)?;
-        writer.finish().map_err(From::from)
+        patch_to_image(writer, &patch, &self.palette)
     }
 
     /// Gets a sprite index, and encodes it as an image.
@@ -174,6 +139,48 @@ where
     })?;
 
     Ok(())
+}
+
+/// Converts a patch to a still PNG.
+pub fn patch_to_image<W>(writer: W, patch: &Patch, palette: &Palette) -> Result<(), EncodeError>
+where
+    W: Write,
+{
+    let mut data = (0..(patch.width as usize * patch.height as usize))
+        .flat_map(|_| {
+            let srgb: Srgba = Color::WHITE.into();
+            srgb.to_u8_array().into_iter()
+        })
+        .collect::<Vec<u8>>();
+
+    for (i, palette_ix) in patch.data.iter().enumerate() {
+        let color_data = &mut data[i * 4..i * 4 + 4];
+
+        if let Some(palette_ix) = palette_ix {
+            palette.copy_color(*palette_ix as usize, color_data);
+        } else {
+            // encode transparent pixel
+            palette.copy_color(255, color_data);
+            color_data[3] = 0;
+        }
+    }
+
+    let mut encoder = png::Encoder::new(writer, patch.width.into(), patch.height.into());
+    encoder.set_color(png::ColorType::Rgba);
+    encoder.set_depth(png::BitDepth::Eight);
+    encoder.set_source_gamma(png::ScaledFloat::new(1.0 / 2.2)); // 1.0 / 2.2, unscaled, but rounded
+    let source_chromaticities = png::SourceChromaticities::new(
+        // Using unscaled instantiation here
+        (0.31270, 0.32900),
+        (0.64000, 0.33000),
+        (0.30000, 0.60000),
+        (0.15000, 0.06000),
+    );
+    encoder.set_source_chromaticities(source_chromaticities);
+
+    let mut writer = encoder.write_header()?;
+    writer.write_image_data(&data)?;
+    writer.finish().map_err(From::from)
 }
 
 /// An error for encoding.

@@ -10,11 +10,13 @@ pub mod spray;
 use crate::components::header::Header;
 use crate::pages::{home::Home, show::Show};
 use crate::skin::{loader::Pk3Loader, Skin};
-use crate::spray::sprays;
+use crate::spray::{sprays, Spray};
 
 use leptos::prelude::*;
 use leptos_meta::*;
 use leptos_router::{components::*, path};
+
+use derive_more::Deref;
 
 use gloo::file::{futures::read_as_bytes, File};
 
@@ -32,13 +34,13 @@ pub fn App() -> impl IntoView {
     let (sprays, _set_sprays) = signal(sprays());
 
     // the raw skin datas, this will be used to create the normal skin datas
-    let (skins, set_skins) = signal(im::Vector::<Skin>::new());
+    let (skins_raw, set_skins_raw) = signal(im::Vector::<Skin>::new());
     let on_file = move |file: File| {
         // try to load file
         wasm_bindgen_futures::spawn_local(async move {
             match load_pk3(file).await {
                 // merge with list
-                Ok(skins) => set_skins.update(move |data| data.extend(skins)),
+                Ok(skins) => set_skins_raw.update(move |data| data.extend(skins)),
                 Err(err) => {
                     // TODO: show error to user
                     leptos::logging::error!("{:?}", err);
@@ -46,6 +48,24 @@ pub fn App() -> impl IntoView {
             }
         });
     };
+
+    let skins = Memo::<im::HashMap<String, SkinWithOptions>>::new_owning(move |old_skins| {
+        let mut skins = old_skins.unwrap_or_default();
+
+        for skin in skins_raw.get() {
+            if !skins.contains_key(&skin.name) {
+                skins.insert(
+                    skin.name.clone(),
+                    SkinWithOptions {
+                        skin,
+                        spray: RwSignal::new(None),
+                    },
+                );
+            }
+        }
+
+        (skins, true)
+    });
 
     view! {
         <Html attr:lang="en" attr:dir="ltr" attr:data-theme="light" />
@@ -67,6 +87,14 @@ pub fn App() -> impl IntoView {
             </Routes>
         </Router>
     }
+}
+
+/// A skin with reactive options.
+#[derive(Clone, Debug, Deref)]
+pub struct SkinWithOptions {
+    #[deref]
+    skin: Skin,
+    pub spray: RwSignal<Option<Spray>>,
 }
 
 async fn load_pk3(file: File) -> Result<Vec<Skin>, Report> {

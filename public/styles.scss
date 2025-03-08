@@ -134,14 +134,23 @@ main {
   height: calc(100vh - 8em);
 }
 
+.select-menu {
+  display: flex;
+  flex-flow: column nowrap;
+  flex-basis: 50%;
+}
+
+.select-sprays {
+  margin: var(--size-3);
+}
+
 .skin-container {
+  flex-grow: 1;
   display: flex;
   flex-flow: row wrap;
   justify-content: center;
   background-color: var(--_bg);
-  flex-basis: 50%;
   overflow: scroll;
-  height: 100%;
 }
 
 .skin-show {
@@ -189,16 +198,31 @@ main {
   padding: 0.5em 0.25em;
   display: flex;
   flex-flow: column nowrap;
+
+  img {
+    flex-grow: 1;
+    image-rendering: pixelated;
+  }
+
+  p {
+    margin: 0.5em 0 0 0;
+    text-align: center;
+  }
 }
 
-.skin-button img {
-  flex-grow: 1;
-  image-rendering: pixelated;
-}
+.spray-button {
+  display: flex;
+  flex-flow: row nowrap;
+  align-items: center;
 
-.skin-button p {
-  margin: 0.5em 0 0 0;
-  text-align: center;
+  img {
+    height: 2em;
+    margin-right: var(--size-2);
+  }
+
+  p {
+    margin: 0;
+  }
 }
 
 .drop-area {

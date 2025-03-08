@@ -28,7 +28,7 @@ pub struct Skin {
     index: Arc<spr2::Index>,
     /// The skin description.
     #[deref]
-    skin: SkinDefine,
+    skin: Arc<SkinDefine>,
 }
 
 impl Skin {

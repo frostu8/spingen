@@ -17,17 +17,24 @@ use wad::Name;
 use eyre::{Report, WrapErr};
 
 #[component]
-pub fn SkinButton(skin: Skin, spray: impl Into<Signal<Spray>>) -> impl IntoView {
-    let spray = spray.into();
+pub fn SkinButton<SP>(skin: Skin, spray: SP) -> impl IntoView
+where
+    SP: Fn() -> Spray + Send + Sync + 'static,
+{
     let skin_clone = skin.clone();
 
     // create display name
     let display_name = skin.realname.replace('_', " ");
 
     // create thumbnail
-    let thumbnail = Signal::derive(move || {
+    let thumbnail_src = Memo::<String>::new(move |old_src| {
+        // free old src
+        if let Some(src) = old_src {
+            Url::revoke_object_url(&src).expect("object revoke");
+        }
+
         // get spray color
-        let spray = spray.get();
+        let spray = spray();
 
         // create encoder
         let gen_thumbnail = || -> Result<String, Report> {
@@ -60,27 +67,22 @@ pub fn SkinButton(skin: Skin, spray: impl Into<Signal<Spray>>) -> impl IntoView 
         };
 
         match gen_thumbnail() {
-            Ok(url) => Some(url),
+            Ok(url) => url,
             Err(err) => {
                 leptos::logging::error!("{:?}", err);
-                None
+                String::from("")
             }
         }
     });
 
     on_cleanup(move || {
-        if let Some(thumbnail_url) = thumbnail.get_untracked() {
-            Url::revoke_object_url(&thumbnail_url).expect("revoke object url");
-        }
+        let thumbnail_url = thumbnail_src.get_untracked();
+        Url::revoke_object_url(&thumbnail_url).expect("revoke object url");
     });
 
     view! {
         <A attr:class="skin-button btn" href=skin.name.clone()>
-            {
-                thumbnail
-                    .get()
-                    .map(|src| view! { <img src=src /> })
-            }
+            <img src=thumbnail_src />
             <p>{ display_name }</p>
         </A>
     }

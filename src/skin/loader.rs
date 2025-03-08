@@ -26,7 +26,7 @@ pub trait SkinLoader: Send + Sync + 'static {
 
 #[derive(Debug, Clone)]
 struct Pk3Skin {
-    skin: SkinDefine,
+    skin: Arc<SkinDefine>,
     sprites: HashMap<Name, usize>,
     index: Arc<spr2::Index>,
 }
@@ -136,7 +136,7 @@ impl Pk3Loader {
             skins.insert(
                 skin_define.name.clone(),
                 Pk3Skin {
-                    skin: skin_define,
+                    skin: Arc::new(skin_define),
                     sprites,
                     index: Arc::new(index),
                 },
