@@ -43,7 +43,7 @@ impl Pk3Skin {
             let mut sprites = HashMap::<Name, usize>::new();
 
             for i in 0..inner.len() {
-                let entry = inner.by_index(i)?;
+                let entry = inner.by_index_raw(i)?;
                 let path = Path::new(entry.name());
 
                 if let Ok(name) = path.strip_prefix(&self.path) {
@@ -76,7 +76,7 @@ impl Pk3Loader {
         // find all S_SKIN defines
         let s_skins = (0..zip.len())
             .filter_map(|i| -> Option<Result<_, Error>> {
-                let entry = match zip.by_index(i) {
+                let entry = match zip.by_index_raw(i) {
                     Ok(entry) => entry,
                     Err(err) => return Some(Err(Error::from(err))),
                 };
