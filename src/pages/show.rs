@@ -64,7 +64,7 @@ pub fn Show(
                     name
                 />
                 <p>
-                    { "To save this: Right-click → Save" }
+                    { "To save this: Right-click → Save Image As" }
                     <br/>
                     { "Showing " }
                     <strong>
