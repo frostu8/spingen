@@ -54,7 +54,7 @@ impl Pk3Loader {
                     Err(err) => return Some(Err(Error::from(err))),
                 };
 
-                match Path::new(entry.name()).file_name().and_then(|s| s.to_str()) {
+                match Path::new(entry.name()).file_stem().and_then(|s| s.to_str()) {
                     Some(name) if name == "S_SKIN" => Some(Ok(i)),
                     Some(_) => None,
                     // ignore misplaced skin definitions at top level
