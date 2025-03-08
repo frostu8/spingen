@@ -13,17 +13,14 @@ use leptos_use::{
 
 /// A drop area.
 #[component]
-pub fn DropArea<F>(on_file: F) -> impl IntoView
+pub fn DropArea<F, T>(on_file: F, children: TypedChildrenFn<T>) -> impl IntoView
 where
     F: Fn(File) + Send + Sync + 'static,
+    T: IntoView + 'static,
 {
     let drop_zone_ref = NodeRef::new();
 
-    let (enabled, set_enabled) = signal(true);
-
     let on_drop = move |ev: UseDropZoneEvent| {
-        set_enabled(false);
-
         for file in ev.files {
             on_file(File::from(file))
         }
@@ -37,12 +34,11 @@ where
         UseDropZoneOptions::default().on_drop(on_drop),
     );
 
+    let children = children.into_inner();
+
     view! {
-        <div
-            id="app-drop-area"
-            class={ move || if enabled.get() { "enabled" } else { "" } }
-            node_ref=drop_zone_ref
-        >
+        <div node_ref=drop_zone_ref>
+            {children()}
         </div>
     }
 }
