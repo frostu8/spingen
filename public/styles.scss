@@ -68,13 +68,20 @@ main {
 
 .skin-show {
   flex-grow: 1;
+  display: flex;
+  flex-flow: column wrap;
   justify-content: center;
 }
 
 .skin-show img {
   margin: var(--size-6);
+  object-fit: contain;
   flex-grow: 1;
   image-rendering: pixelated;
+}
+
+.skin-show p {
+  padding-bottom: var(--size-6);
 }
 
 .hidden {

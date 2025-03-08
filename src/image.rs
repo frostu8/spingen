@@ -1,12 +1,14 @@
 //! The image encoding utilities.
 
-use crate::doom::patch::Palette;
-use crate::skin::{loader::Error, Skin};
+use crate::doom::patch::{Palette, PALETTE_COLORS};
+use crate::skin::{loader::Error, Skin, Sprite, SpriteAngle};
 use crate::spray::Spray;
 
 use std::io::Write;
 
 use bevy_color::{Color, ColorToPacked, Srgba};
+
+use derive_more::{Display, Error, From};
 
 use wad::Name;
 
@@ -45,45 +47,135 @@ impl<'a> Encoder<'a> {
     /// it as a bitmap.
     pub fn sprite(&mut self, name: Name) -> Result<Image, Error> {
         let patch = self.skin_data.read_sprite(name)?;
-
-        // encode as bitmap
-        let mut image = Image::new_fill(patch.width, patch.height, Color::WHITE);
-
-        for (i, palette_ix) in patch.data.iter().enumerate() {
-            let color_data = &mut image.data[i * 4..i * 4 + 4];
-
-            if let Some(palette_ix) = palette_ix {
-                self.palette.copy_color(*palette_ix as usize, color_data);
-            } else {
-                // encode transparent pixel
-                self.palette.copy_color(255, color_data);
-                color_data[3] = 0;
-            }
-        }
+        let image = sprite_to_image(&patch, &self.palette);
 
         Ok(image)
     }
 
     /// Gets a sprite index, and encodes it as a GIF.
-    pub fn sprite_gif<W>(&mut self, mut writer: W, name: Name) -> Result<(), Error>
+    pub fn sprite_gif<W>(&mut self, writer: W, name: Name) -> Result<(), EncodeError>
     where
         W: Write,
     {
+        let angles = &[
+            SpriteAngle::FORWARD,
+            SpriteAngle::RIGHT_FORWARD,
+            SpriteAngle::RIGHT,
+            SpriteAngle::RIGHT_BACKWARD,
+            SpriteAngle::BACKWARD,
+            SpriteAngle::LEFT_BACKWARD,
+            SpriteAngle::LEFT,
+            SpriteAngle::LEFT_FORWARD,
+        ];
+
+        if name.as_str().len() < 5 {
+            return Err(Error::NotFound(name.to_string()).into());
+        }
+
+        let frame = name[4];
+        let name = Name::from_bytes(&name[..4]).expect("valid subname");
+
         // get all patches
         let patches = self.skin_data.read_prefix(name.as_str())?;
 
         if patches.len() == 0 {
-            return Err(Error::NotFound(name.to_string()));
+            return Err(Error::NotFound(name.to_string()).into());
         }
 
+        // get all angles
+        let mut angles = angles.into_iter().copied().filter_map(|angle| {
+            patches
+                .iter()
+                .filter_map(|patch| {
+                    if patch.identifier() == name {
+                        patch.provides(frame, angle).map(|mirror| (patch, mirror))
+                    } else {
+                        None
+                    }
+                })
+                .next()
+        });
+
         // get first angle
-        //let forward_ix = patches.iter().position(|patch| patch.name().as_str())
+        let Some((forward, mirror_forward)) = angles.next() else {
+            return Err(Error::NotFound(name.to_string()).into());
+        };
 
         // begin encoding a gif
-        //let mut gif = gif::Encoder::new(writer, self.)
+        let mut palette = [0u8; PALETTE_COLORS * 3];
+        for (i, color) in self.palette.iter().enumerate() {
+            let color_bytes = color.to_srgba().to_u8_array();
+            (&mut palette[i * 3..i * 3 + 3]).copy_from_slice(&color_bytes[..3]);
+        }
 
-        todo!()
+        let mut gif = gif::Encoder::new(writer, forward.width, forward.height, &palette)?;
+        gif.write_extension(gif::ExtensionData::Repetitions(gif::Repeat::Infinite))?;
+        sprite_to_gif(&mut gif, forward, mirror_forward)?;
+
+        // get other angles
+        for (sprite, mirror) in angles {
+            sprite_to_gif(&mut gif, sprite, mirror)?;
+        }
+
+        Ok(())
     }
+}
+
+fn sprite_to_gif<W>(
+    gif: &mut gif::Encoder<W>,
+    patch: &Sprite,
+    mirror: bool,
+) -> Result<(), gif::EncodingError>
+where
+    W: Write,
+{
+    // copy patch
+    let mut buf = (0..(patch.width as usize * patch.height as usize))
+        .map(|_| 0)
+        .collect::<Vec<u8>>();
+
+    for (i, palette_ix) in patch.data.iter().copied().enumerate() {
+        let dest_i = if mirror {
+            let col = i % patch.width as usize;
+            let mirrored = patch.width as usize - col - 1;
+            i - col + mirrored
+        } else {
+            i
+        };
+
+        buf[dest_i] = palette_ix.unwrap_or(255);
+    }
+
+    gif.write_frame(&gif::Frame {
+        // TODO proper delay
+        delay: 20,
+        dispose: gif::DisposalMethod::Background,
+        transparent: Some(255),
+        buffer: buf.into(),
+        width: patch.width,
+        height: patch.height,
+        ..Default::default()
+    })?;
+
+    Ok(())
+}
+
+fn sprite_to_image(patch: &Sprite, palette: &Palette) -> Image {
+    let mut image = Image::new_fill(patch.width, patch.height, Color::WHITE);
+
+    for (i, palette_ix) in patch.data.iter().enumerate() {
+        let color_data = &mut image.data[i * 4..i * 4 + 4];
+
+        if let Some(palette_ix) = palette_ix {
+            palette.copy_color(*palette_ix as usize, color_data);
+        } else {
+            // encode transparent pixel
+            palette.copy_color(255, color_data);
+            color_data[3] = 0;
+        }
+    }
+
+    image
 }
 
 /// A bitmap.
@@ -122,7 +214,7 @@ impl Image {
     }
 
     /// Encodes an image as a png.
-    pub fn to_png<W>(&self, writer: W) -> Result<(), png::EncodingError>
+    pub fn to_png<W>(&self, writer: W) -> Result<(), EncodeError>
     where
         W: Write,
     {
@@ -141,8 +233,18 @@ impl Image {
 
         let mut writer = encoder.write_header()?;
         writer.write_image_data(&self.data)?;
-        writer.finish()
+        writer.finish().map_err(From::from)
     }
+}
+
+/// An error for encoding.
+#[derive(Debug, Display, Error, From)]
+pub enum EncodeError {
+    Loader(Error),
+    Gif(gif::EncodingError),
+    Png(png::EncodingError),
+    #[display("no angles to make gif")]
+    NoAngles,
 }
 
 /*

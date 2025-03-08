@@ -6,7 +6,7 @@ use std::ops::Deref;
 use std::sync::Arc;
 
 /// An easily cloneable spray can.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct Spray(Arc<DoomSpray>);
 
 impl From<DoomSpray> for Spray {

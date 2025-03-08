@@ -7,6 +7,7 @@ use crate::doom::{patch::Patch as DoomPatch, skin::SkinDefine};
 use loader::{Error as LoaderError, SkinLoader};
 
 use std::fmt::{self, Debug, Formatter};
+use std::num::NonZeroU8;
 use std::sync::Arc;
 
 use wad::Name;
@@ -60,6 +61,16 @@ impl SpriteName {
     pub fn identifier(&self) -> Name {
         Name::from_bytes(&self.name[..4]).expect("valid subname")
     }
+
+    /// The frame of the sprite.
+    pub fn frame(&self) -> &SpriteFrame {
+        &self.frame
+    }
+
+    /// The mirrored frame of the sprite, if any.
+    pub fn mirrored_frame(&self) -> Option<&SpriteFrame> {
+        self.mirrored_frame.as_ref()
+    }
 }
 
 impl TryFrom<Name> for SpriteName {
@@ -76,13 +87,12 @@ impl TryFrom<Name> for SpriteName {
                 }
                 let frame = bytes[0];
 
-                if bytes[1] < b'0' {
+                let Some(angle) = SpriteAngle::from_ascii_char(bytes[1]) else {
                     return Err(FromNameError {
                         name: value,
                         kind: FromNameErrorKind::InvalidAngle(bytes[1] as char),
                     });
-                }
-                let angle = bytes[1] - b'0';
+                };
 
                 Ok(SpriteFrame { frame, angle })
             };
@@ -112,7 +122,41 @@ impl TryFrom<Name> for SpriteName {
 #[derive(Clone, Copy, Debug)]
 pub struct SpriteFrame {
     pub frame: u8,
-    pub angle: u8,
+    pub angle: SpriteAngle,
+}
+
+/// A sprite angle.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct SpriteAngle(NonZeroU8);
+
+impl SpriteAngle {
+    /// The forward angle.
+    pub const FORWARD: SpriteAngle = SpriteAngle(unsafe { NonZeroU8::new_unchecked(b'1') });
+    /// The right forward angle.
+    pub const RIGHT_FORWARD: SpriteAngle = SpriteAngle(unsafe { NonZeroU8::new_unchecked(b'2') });
+    /// The right angle.
+    pub const RIGHT: SpriteAngle = SpriteAngle(unsafe { NonZeroU8::new_unchecked(b'3') });
+    /// The right backward angle.
+    pub const RIGHT_BACKWARD: SpriteAngle = SpriteAngle(unsafe { NonZeroU8::new_unchecked(b'4') });
+    /// The backward angle.
+    pub const BACKWARD: SpriteAngle = SpriteAngle(unsafe { NonZeroU8::new_unchecked(b'5') });
+    /// The left backward angle.
+    pub const LEFT_BACKWARD: SpriteAngle = SpriteAngle(unsafe { NonZeroU8::new_unchecked(b'6') });
+    /// The left angle.
+    pub const LEFT: SpriteAngle = SpriteAngle(unsafe { NonZeroU8::new_unchecked(b'7') });
+    /// The left forward angle.
+    pub const LEFT_FORWARD: SpriteAngle = SpriteAngle(unsafe { NonZeroU8::new_unchecked(b'8') });
+
+    /// Creates a `SpriteAngle` from an ascii char.
+    ///
+    /// Returns `None` if the angle is invalid.
+    pub fn from_ascii_char(byte: u8) -> Option<SpriteAngle> {
+        if (b'0'..=b'9').contains(&byte) {
+            Some(SpriteAngle(NonZeroU8::new(byte).expect("valid byte")))
+        } else {
+            None
+        }
+    }
 }
 
 /// A patch with a name.
@@ -124,9 +168,14 @@ pub struct Sprite {
 }
 
 impl Sprite {
-    /// The name of the sprite.
+    /// The full name of the sprite.
     pub fn name(&self) -> &Name {
         &self.name.name
+    }
+
+    /// The 4-character sprite identifier.
+    pub fn identifier(&self) -> Name {
+        Name::from_bytes(&self.name.name[..4]).expect("valid subname")
     }
 
     /// The frame of the sprite.
@@ -137,6 +186,25 @@ impl Sprite {
     /// The mirrored frame of the sprite, if any.
     pub fn mirrored_frame(&self) -> Option<&SpriteFrame> {
         self.name.mirrored_frame.as_ref()
+    }
+
+    /// Checks if the sprite provides an angle.
+    ///
+    /// The boolean returned will be `true` if the sprite must be mirrored to
+    /// produce the angle.
+    pub fn provides(&self, frame: u8, angle: SpriteAngle) -> Option<bool> {
+        if self.name.frame().angle == angle && self.name.frame().frame == frame {
+            Some(false)
+        } else if self
+            .name
+            .mirrored_frame()
+            .map(|f| f.angle == angle && f.frame == frame)
+            .unwrap_or_default()
+        {
+            Some(true)
+        } else {
+            None
+        }
     }
 }
 

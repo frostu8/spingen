@@ -11,7 +11,7 @@ use super::patch::Palette;
 /// A single spray.
 ///
 /// A palette is effectively just a color mapping.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Spray {
     /// The slot of the palette, which is used as the palette's identifier.
     pub id: String,
