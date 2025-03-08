@@ -6,7 +6,7 @@ use leptos::prelude::*;
 
 use web_sys::HtmlInputElement;
 
-use crate::components::drop_area::DropArea;
+//use crate::components::drop_area::DropArea;
 
 use gloo::file::File;
 
@@ -35,24 +35,19 @@ where
     view! {
         <header>
             <h3>spingen</h3>
-            <DropArea attr:class="drop-area" on_file>
-                <p>
-                    { "Show off your racer!" }
-                    <br/>
-                    { "Drag and drop a pk3 "}
-                    <strong>{ "here" }</strong>
-                    { ", or " }
-                    <button
-                        class="link-button"
-                        on:click=move |_ev| { file_dialog.get().expect("input node should exist").click() }
-                    >
-                        { "click me" }
-                    </button>
-                    { "." }
-                    <br/>
-                    <strong>{ "Note:" }</strong> { " Only supports vanilla colors (for now)" }
-                </p>
-            </DropArea>
+            <p>
+                { "Show off your racer!" }
+                <br/>
+                <button
+                    class="link-button"
+                    on:click=move |_ev| { file_dialog.get().expect("input node should exist").click() }
+                >
+                    { "Click here" }
+                </button>
+                { " to load a pk3."}
+                <br/>
+                <strong>{ "Note:" }</strong> { " Only supports vanilla colors (for now)" }
+            </p>
             <input
                 type="file"
                 accept=".pk3"
