@@ -140,10 +140,6 @@ main {
   flex-basis: 50%;
 }
 
-.select-sprays {
-  margin: var(--size-3);
-}
-
 .skin-container {
   flex-grow: 1;
   display: flex;
@@ -208,6 +204,11 @@ main {
     margin: 0.5em 0 0 0;
     text-align: center;
   }
+}
+
+.spray-select {
+  margin: var(--size-3);
+  min-height: 30%;
 }
 
 .spray-button {

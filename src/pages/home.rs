@@ -24,7 +24,7 @@ where
             <section class="select-menu">
                 <SkinSelect skins sprays />
                 <SpraySelect
-                    attr:class="select-sprays"
+                    attr:class="spray-select"
                     sprays=sprays_clone
                     value=move || Spray::default()
                     on_change=move |spray| {
