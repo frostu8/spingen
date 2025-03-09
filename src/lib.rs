@@ -58,7 +58,7 @@ pub fn App() -> impl IntoView {
                     skin.name.clone(),
                     SkinWithOptions {
                         skin,
-                        spray: RwSignal::new(None),
+                        spray: ArcRwSignal::new(None),
                     },
                 );
             }
@@ -94,7 +94,7 @@ pub fn App() -> impl IntoView {
 pub struct SkinWithOptions {
     #[deref]
     skin: Skin,
-    pub spray: RwSignal<Option<Spray>>,
+    pub spray: ArcRwSignal<Option<Spray>>,
 }
 
 async fn load_pk3(file: File) -> Result<Vec<Skin>, Report> {
