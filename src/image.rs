@@ -4,7 +4,6 @@ use crate::doom::patch::{Palette, Patch, PALETTE_COLORS};
 use crate::skin::{loader::Error, Skin};
 use crate::spray::Spray;
 
-use std::cmp::min;
 use std::io::Write;
 
 use bevy_color::{Color, ColorToPacked, Srgba};
