@@ -39,6 +39,42 @@ where
     let (name, set_name) = signal(Name::from_bytes(b"STIN").expect("valid name"));
     let (frame, set_frame) = signal(b'A');
 
+    // reset frame and name if out-of-bounds
+    let (old_skin, set_old_skin) = signal(None);
+    Effect::new(move || {
+        let Some(skin) = skin.get() else {
+            return;
+        };
+        let old_skin = old_skin.get();
+
+        if old_skin.is_none() {
+            // update frame stuff on the next tic to resynch the UI
+            set_name(Name::from_bytes(b"STIN").expect("valid name"));
+            set_frame(b'A');
+        }
+
+        if Some(&skin.name) != old_skin.as_ref() {
+            set_old_skin.set(Some(skin.name.clone()));
+
+            // update frame name
+            let name = name.get_untracked();
+            if !skin.iter().any(|frame| frame == name) {
+                // reset
+                set_name(Name::from_bytes(b"STIN").expect("valid name"));
+            }
+
+            // update frame
+            let frame = frame.get_untracked();
+            if !skin
+                .iter_frames(&name)
+                .any(|inner_frame| inner_frame == frame)
+            {
+                // reset
+                set_frame(b'A');
+            }
+        }
+    });
+
     let spray = Signal::derive(move || {
         let sprays = sprays();
 
