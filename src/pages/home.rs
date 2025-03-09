@@ -1,12 +1,17 @@
 //! The home page.
 
 use leptos::prelude::*;
-use leptos_router::{hooks::use_params, nested_router::Outlet};
+use leptos_router::{hooks::use_query, params::Params};
 
-use crate::components::{skin_select::SkinSelect, spray_select::SpraySelect};
-use crate::pages::show::ShowParams;
+use crate::components::{show::Show, skin_select::SkinSelect, spray_select::SpraySelect};
 use crate::spray::Spray;
 use crate::SkinWithOptions;
+
+/// Parameters for the URL.
+#[derive(Params, PartialEq)]
+pub struct PageQuery {
+    pub name: String,
+}
 
 /// Default Home Page
 #[component]
@@ -15,7 +20,7 @@ where
     S: Fn() -> im::HashMap<String, SkinWithOptions> + Clone + Send + Sync + 'static,
     SP: Fn() -> im::Vector<Spray> + Clone + Send + Sync + 'static,
 {
-    let params = use_params::<ShowParams>();
+    let params = use_query::<PageQuery>();
 
     let sprays_clone = sprays.clone();
     let skins_clone = skins.clone();
@@ -52,19 +57,30 @@ where
         }
     };
 
-    let sprays_clone = sprays.clone();
-
     view! {
         <main>
             <section class="select-menu">
-                <SkinSelect skins sprays />
-                <SpraySelect
-                    sprays=sprays_clone
-                    value
-                    on_change
-                />
+                {
+                    let skins = skins.clone();
+                    let sprays = sprays.clone();
+                    view! { <SkinSelect skins sprays /> }
+                }
+                {
+                    let sprays = sprays.clone();
+                    view! {
+                        <SpraySelect
+                            sprays
+                            value
+                            on_change
+                        />
+                    }
+                }
             </section>
-            <Outlet/>
+            {
+                let skins = skins.clone();
+                let sprays = sprays.clone();
+                view! { <Show skins sprays /> }
+            }
         </main>
     }
 }

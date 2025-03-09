@@ -2,22 +2,16 @@
 
 use leptos::control_flow::Show as ControlShow;
 use leptos::prelude::*;
-use leptos_router::hooks::use_params;
-use leptos_router::params::Params;
+use leptos_router::hooks::use_query;
 
 use crate::components::{
     frame_select::FrameSelect, skin_show::SkinShow, sprite_select::SpriteSelect,
 };
+use crate::pages::home::PageQuery;
 use crate::spray::Spray;
 use crate::SkinWithOptions;
 
 use wad::Name;
-
-/// Parameters for [`Show`].
-#[derive(Params, PartialEq)]
-pub struct ShowParams {
-    pub name: String,
-}
 
 /// Shows a skin on the page.
 #[component]
@@ -26,7 +20,7 @@ where
     S: Fn() -> im::HashMap<String, SkinWithOptions> + Send + Sync + 'static,
     SP: Fn() -> im::Vector<Spray> + Send + Sync + 'static,
 {
-    let params = use_params::<ShowParams>();
+    let params = use_query::<PageQuery>();
 
     let skin = Signal::derive(move || {
         params

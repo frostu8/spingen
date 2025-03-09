@@ -8,7 +8,7 @@ pub mod skin;
 pub mod spray;
 
 use crate::components::header::Header;
-use crate::pages::{home::Home, show::Show};
+use crate::pages::home::Home;
 use crate::skin::{loader::Pk3Loader, Skin};
 use crate::spray::{sprays, Spray};
 
@@ -81,9 +81,7 @@ pub fn App() -> impl IntoView {
 
         <Router>
             <Routes fallback=|| view! { NotFound }>
-                <ParentRoute path=path!("/") view=move || view! { <Home skins sprays /> }>
-                    <Route path=path!(":name") view=move || view! { <Show skins sprays /> } />
-                </ParentRoute>
+                <Route path=path!("/") view=move || view! { <Home skins sprays /> } />
             </Routes>
         </Router>
     }

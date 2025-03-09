@@ -81,7 +81,10 @@ where
     });
 
     view! {
-        <A attr:class="skin-button btn" href=skin.name.clone()>
+        <A
+            attr:class="skin-button btn"
+            href=format!("/?name={}", skin.name.clone())
+        >
             <img src=thumbnail_src />
             <p>{ display_name }</p>
         </A>
