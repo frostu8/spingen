@@ -123,6 +123,13 @@ where
                         on_change=move |new_frame| set_frame(new_frame)
                         value=move || frame.get()
                     />
+                    <button
+                        on:click=move |_| {
+                            skin.get().expect("valid skin").spray.set(None);
+                        }
+                    >
+                        { "Use Preferred Spray" }
+                    </button>
                 </div>
                 <p>
                     { "To save this: Right-click → Save Image As" }

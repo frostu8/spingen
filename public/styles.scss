@@ -163,6 +163,10 @@ main {
   display: flex;
   flex-flow: row nowrap;
   gap: var(--size-2);
+
+  button {
+    margin: 0;
+  }
 }
 
 .hidden {
