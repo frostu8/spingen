@@ -16,27 +16,52 @@ where
     SP: Fn() -> im::Vector<Spray> + Clone + Send + Sync + 'static,
 {
     let params = use_params::<ShowParams>();
+
     let sprays_clone = sprays.clone();
     let skins_clone = skins.clone();
+    let value = move || {
+        if let Some(skin) = params
+            .read()
+            .as_ref()
+            .ok()
+            .and_then(|params| skins_clone().get(&params.name).cloned())
+        {
+            skin.spray
+                .get()
+                .or_else(|| {
+                    sprays_clone()
+                        .iter()
+                        .find(|spray| spray.name.eq_ignore_ascii_case(&skin.prefcolor))
+                        .cloned()
+                })
+                .unwrap_or_default()
+        } else {
+            Spray::default()
+        }
+    };
+
+    let skins_clone = skins.clone();
+    let on_change = move |spray| {
+        if let Some(skin) = params
+            .read()
+            .as_ref()
+            .ok()
+            .and_then(|params| skins_clone().get(&params.name).cloned())
+        {
+            skin.spray.set(Some(spray));
+        }
+    };
+
+    let sprays_clone = sprays.clone();
 
     view! {
         <main>
             <section class="select-menu">
                 <SkinSelect skins sprays />
                 <SpraySelect
-                    attr:class="spray-select"
                     sprays=sprays_clone
-                    value=move || Spray::default()
-                    on_change=move |spray| {
-                        if let Some(skin) = params
-                            .read()
-                            .as_ref()
-                            .ok()
-                            .and_then(|params| skins_clone().get(&params.name).cloned())
-                        {
-                            skin.spray.set(Some(spray));
-                        }
-                    }
+                    value
+                    on_change
                 />
             </section>
             <Outlet/>

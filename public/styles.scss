@@ -118,15 +118,6 @@ button {
   margin: var(--size-6);
 }
 
-body > picture,
-button {
-  display: block;
-  margin-left: auto;
-  margin-right: auto;
-  text-align: center;
-  margin: 2rem;
-}
-
 main {
   display: flex;
   flex-flow: row nowrap;
@@ -208,13 +199,25 @@ main {
 
 .spray-select {
   margin: var(--size-3);
-  min-height: 30%;
+  height: 15em;
+  min-height: 15em;
+  overflow: scroll;
+  display: flex;
+  flex-flow: column nowrap;
+  align-items: stretch;
 }
 
 .spray-button {
-  display: flex;
-  flex-flow: row nowrap;
-  align-items: center;
+  display: flex-inline;
+  margin: 0;
+  padding: var(--size-1) var(--size-2) var(--size-1) var(--size-6);
+  border-radius: 0;
+  justify-content: flex-start;
+  --_highlight-size: 0 !important;
+
+  &.selected {
+    background-color: var(--brand-dim);
+  }
 
   img {
     height: 2em;

@@ -10,7 +10,7 @@ use std::io::Cursor;
 
 use gloo::file::Blob;
 
-use web_sys::Url;
+use web_sys::{MouseEvent, Url};
 
 use eyre::{Report, WrapErr};
 
@@ -21,40 +21,42 @@ const SPRAYCAN_GRAPHIC: &[u8] = include_bytes!("../SPCNK0.lmp");
 pub fn SpraySelect<S, F, V>(sprays: S, value: V, on_change: F) -> impl IntoView
 where
     S: Fn() -> im::Vector<Spray> + Clone + Send + Sync + 'static,
-    F: Fn(Spray) + Send + Sync + 'static,
-    V: Fn() -> Spray + Send + Sync + 'static,
+    F: Fn(Spray) + Clone + Send + Sync + 'static,
+    V: Fn() -> Spray + Clone + Send + Sync + 'static,
 {
-    let sprays_clone = sprays.clone();
     view! {
-        <select
-            on:change:target=move |ev| {
-                let sprays = sprays_clone();
-                let spray_id = ev.target().value();
-
-                if let Some(spray) = sprays
-                    .iter()
-                    .find(|s| s.id == spray_id)
-                    .cloned()
-                {
-                    on_change(spray);
-                }
-            }
-            prop:value=move || value().name.clone()
-            size="6"
-        >
+        <div class="spray-select">
             <For
                 each=move || sprays()
                 key=move |spray| spray.id.clone()
                 children=move |spray| {
-                    view! { <SpraySelectOption spray /> }
+                    let on_change = on_change.clone();
+
+                    let spray_clone = spray.clone();
+                    let spray_clone2 = spray.clone();
+                    let value = value.clone();
+
+                    view! {
+                        <SpraySelectOption
+                            spray
+                            on_click=move |_| {
+                                on_change(spray_clone.clone());
+                            }
+                            selected=move || value() == spray_clone2
+                        />
+                    }
                 }
             />
-        </select>
+        </div>
     }
 }
 
 #[component]
-fn SpraySelectOption(spray: Spray) -> impl IntoView {
+fn SpraySelectOption<F, Sel>(spray: Spray, on_click: F, selected: Sel) -> impl IntoView
+where
+    F: Fn(MouseEvent) + Send + Sync + 'static,
+    Sel: Fn() -> bool + Send + Sync + 'static,
+{
     // generate spray palette
     let palette = Palette::default();
     let palette = spray.remap(&palette, 96);
@@ -83,10 +85,20 @@ fn SpraySelectOption(spray: Spray) -> impl IntoView {
             });
 
             view! {
-                <option class="spray-button" value=spray.id.clone()>
+                <button
+                    on:click=on_click
+                    class=move || {
+                        if selected() {
+                            "spray-button selected"
+                        } else {
+                            "spray-button"
+                        }
+                    }
+                    value=spray.id.clone()
+                >
                     <img src=url />
-                    <p>{ spray.name.clone() }</p>
-                </option>
+                    { spray.name.clone() }
+                </button>
             }
             .into_any()
         }
@@ -94,7 +106,13 @@ fn SpraySelectOption(spray: Spray) -> impl IntoView {
             leptos::logging::error!("{:?}", err);
 
             view! {
-                <option value=spray.id.clone()>{ spray.name.clone() }</option>
+                <button
+                    on:click=on_click
+                    class="spray-button"
+                    value=spray.id.clone()
+                >
+                    { spray.name.clone() }
+                </button>
             }
             .into_any()
         }
