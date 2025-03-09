@@ -4,6 +4,7 @@ use crate::doom::patch::{Palette, Patch, PALETTE_COLORS};
 use crate::skin::{loader::Error, Skin};
 use crate::spray::Spray;
 
+use std::cmp::min;
 use std::io::Write;
 
 use bevy_color::{Color, ColorToPacked, Srgba};
@@ -58,6 +59,20 @@ impl<'a> Encoder<'a> {
     where
         W: Write,
     {
+        self.sprite_gif_with_options(writer, name, frame, GifOptions::default())
+    }
+
+    /// Gets a sprite index, and encodes it as an image.
+    pub fn sprite_gif_with_options<W>(
+        &mut self,
+        writer: W,
+        name: Name,
+        frame: u8,
+        options: GifOptions,
+    ) -> Result<(), EncodeError>
+    where
+        W: Write,
+    {
         if name.as_str().len() < 4 {
             return Err(Error::NotFound(name.to_string()).into());
         }
@@ -80,6 +95,8 @@ impl<'a> Encoder<'a> {
         }
 
         let patch = self.skin_data.read(spr2.name)?;
+        let width = (patch.width as f32 * options.scale) as u16;
+        let height = (patch.height as f32 * options.scale) as u16;
 
         // begin encoding a gif
         let mut palette = [0u8; PALETTE_COLORS * 3];
@@ -88,53 +105,98 @@ impl<'a> Encoder<'a> {
             (&mut palette[i * 3..i * 3 + 3]).copy_from_slice(&color_bytes[..3]);
         }
 
-        let mut gif = gif::Encoder::new(writer, patch.width, patch.height, &palette)?;
+        let mut gif = gif::Encoder::new(writer, width, height, &palette)?;
         gif.write_extension(gif::ExtensionData::Repetitions(gif::Repeat::Infinite))?;
-        patch_to_gif_frame(&mut gif, &patch, spr2.mirror)?;
+        patch_to_gif_frame(
+            &mut gif,
+            &patch,
+            GifOptions {
+                mirror: spr2.mirror ^ options.mirror,
+                ..options
+            },
+        )?;
 
         // get other angles
         for spr2 in angles.into_iter().rev() {
             let patch = self.skin_data.read(spr2.name)?;
-            patch_to_gif_frame(&mut gif, &patch, spr2.mirror)?;
+            patch_to_gif_frame(
+                &mut gif,
+                &patch,
+                GifOptions {
+                    mirror: spr2.mirror ^ options.mirror,
+                    ..options
+                },
+            )?;
         }
 
         Ok(())
     }
 }
 
+/// GIF encode options.
+#[derive(Clone, Debug, PartialEq)]
+pub struct GifOptions {
+    /// The factor to upscale by.
+    pub scale: f32,
+    /// The delay between each frame, in MS.
+    pub delay: u16,
+    /// Whether to mirror across the X axis.
+    pub mirror: bool,
+}
+
+impl Default for GifOptions {
+    fn default() -> Self {
+        GifOptions {
+            scale: 1.,
+            delay: 20,
+            mirror: false,
+        }
+    }
+}
+
 fn patch_to_gif_frame<W>(
     gif: &mut gif::Encoder<W>,
     patch: &Patch,
-    mirror: bool,
+    options: GifOptions,
 ) -> Result<(), gif::EncodingError>
 where
     W: Write,
 {
-    // copy patch
-    let mut buf = (0..(patch.width as usize * patch.height as usize))
-        .map(|_| 0)
-        .collect::<Vec<u8>>();
+    // setup resample heights
+    let width = (patch.width as f32 * options.scale) as usize;
+    let height = (patch.height as f32 * options.scale) as usize;
 
-    for (i, palette_ix) in patch.data.iter().copied().enumerate() {
-        let dest_i = if mirror {
-            let col = i % patch.width as usize;
-            let mirrored = patch.width as usize - col - 1;
-            i - col + mirrored
+    // copy patch
+    let mut buf = (0..(width * height)).map(|_| 0).collect::<Vec<u8>>();
+
+    for (i, dest) in buf.iter_mut().enumerate() {
+        // sample by nearest neighbor
+        let dest_x = i % width;
+        let dest_y = i / width;
+
+        let src_x = (dest_x as f32 / options.scale) as usize;
+        let src_y = (dest_y as f32 / options.scale) as usize;
+
+        // saturate
+        //let src_x = min(src_x, patch.width as usize - 1);
+        //let src_y = min(src_y, patch.height as usize - 1);
+
+        let src_x = if options.mirror {
+            patch.width as usize - src_x - 1
         } else {
-            i
+            src_x
         };
 
-        buf[dest_i] = palette_ix.unwrap_or(255);
+        *dest = patch.data[src_y * patch.width as usize + src_x].unwrap_or(255);
     }
 
     gif.write_frame(&gif::Frame {
-        // TODO proper delay
-        delay: 20,
+        delay: options.delay,
         dispose: gif::DisposalMethod::Background,
         transparent: Some(255),
         buffer: buf.into(),
-        width: patch.width,
-        height: patch.height,
+        width: width as u16,
+        height: height as u16,
         ..Default::default()
     })?;
 

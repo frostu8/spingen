@@ -2,7 +2,7 @@
 
 use leptos::prelude::*;
 
-use crate::image::Encoder;
+use crate::image::{Encoder, GifOptions};
 use crate::skin::Skin;
 use crate::spray::Spray;
 
@@ -18,11 +18,12 @@ use web_sys::Url;
 
 /// Shows a skin as a gif.
 #[component]
-pub fn SkinShow<S, SP, N>(skin: S, spray: SP, name: N) -> impl IntoView
+pub fn SkinShow<S, SP, N, O>(skin: S, spray: SP, name: N, options: O) -> impl IntoView
 where
     S: Fn() -> Skin + Send + Sync + 'static,
     SP: Fn() -> Spray + Send + Sync + 'static,
     N: Fn() -> (Name, u8) + Send + Sync + 'static,
+    O: Fn() -> GifOptions + Send + Sync + 'static,
 {
     let memoized_spray = Memo::new(move |_| spray());
 
@@ -32,6 +33,7 @@ where
 
         let skin = skin();
         let (name, frame) = name();
+        let options = options();
 
         // free old src
         if let Some(src) = old_img_src {
@@ -44,7 +46,7 @@ where
             // generate new gif
             let mut buf = Vec::new();
             encoder
-                .sprite_gif(Cursor::new(&mut buf), name, frame)
+                .sprite_gif_with_options(Cursor::new(&mut buf), name, frame, options)
                 .wrap_err("failed to encode gif")?;
 
             let blob = Blob::new_with_options(&buf[..], Some("image/gif"));

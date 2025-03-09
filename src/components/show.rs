@@ -4,12 +4,17 @@ use leptos::control_flow::Show as ControlShow;
 use leptos::prelude::*;
 use leptos_router::hooks::use_query;
 
+use std::str::FromStr;
+
 use crate::components::{
     frame_select::FrameSelect, skin_show::SkinShow, sprite_select::SpriteSelect,
 };
+use crate::image::GifOptions;
 use crate::pages::home::PageQuery;
 use crate::spray::Spray;
 use crate::SkinWithOptions;
+
+use derive_more::{Display, Error};
 
 use wad::Name;
 
@@ -32,6 +37,7 @@ where
 
     let (name, set_name) = signal(Name::from_bytes(b"STIN").expect("valid name"));
     let (frame, set_frame) = signal(b'A');
+    let (scale, set_scale) = signal(Scale::Times1);
 
     // reset frame and name if out-of-bounds
     let (old_skin, set_old_skin) = signal(None);
@@ -95,6 +101,17 @@ where
                     skin=move || skin.get().expect("valid skin").skin
                     spray=move || spray.get().unwrap_or_default()
                     name=move || (name.get(), frame.get())
+                    options=move || {
+                        GifOptions {
+                            scale: match scale.get() {
+                                Scale::Times1 => 1.0,
+                                Scale::Times2 => 2.0,
+                                Scale::Times3 => 3.0,
+                                Scale::Times4 => 4.0,
+                            },
+                            ..Default::default()
+                        }
+                    }
                 />
                 <div class="skin-show-controls">
                     <SpriteSelect
@@ -117,6 +134,20 @@ where
                         on_change=move |new_frame| set_frame(new_frame)
                         value=move || frame.get()
                     />
+                    <select
+                        on:change:target=move |ev| {
+                            set_scale(ev.target().value().parse().expect("valid scale"));
+                        }
+                        prop:value=move || scale.get().to_string()
+                    >
+                        {
+                            Scale::iter()
+                                .map(|scale| view! {
+                                    <option value=scale.to_string()>{ scale.to_string() }</option>
+                                })
+                                .collect::<Vec<_>>()
+                        }
+                    </select>
                     <button
                         on:click=move |_| {
                             skin.get().expect("valid skin").spray.set(None);
@@ -136,5 +167,42 @@ where
                 </p>
             </ControlShow>
         </section>
+    }
+}
+
+#[derive(Debug, Clone, Copy, Display)]
+enum Scale {
+    #[display("x1")]
+    Times1,
+    #[display("x2")]
+    Times2,
+    #[display("x3")]
+    Times3,
+    #[display("x4")]
+    Times4,
+}
+
+impl Scale {
+    /// Iterates over all possible values of [`Scale`].
+    pub fn iter() -> impl Iterator<Item = Scale> + ExactSizeIterator {
+        [Scale::Times1, Scale::Times2, Scale::Times3, Scale::Times4].into_iter()
+    }
+}
+
+#[derive(Debug, Clone, Display, Error)]
+#[display("not a scale")]
+struct NotAScaleError;
+
+impl FromStr for Scale {
+    type Err = NotAScaleError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "x1" => Ok(Scale::Times1),
+            "x2" => Ok(Scale::Times2),
+            "x3" => Ok(Scale::Times3),
+            "x4" => Ok(Scale::Times4),
+            _ => Err(NotAScaleError),
+        }
     }
 }
