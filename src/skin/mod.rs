@@ -3,10 +3,9 @@
 pub mod loader;
 pub mod spr2;
 
-use crate::doom::{patch::Patch as DoomPatch, skin::SkinDefine};
+use crate::doom::{patch::Patch, skin::SkinDefine};
+use crate::Error;
 use spr2::Spr2;
-
-use loader::{Error as LoaderError, SkinLoader};
 
 use std::fmt::{self, Debug, Formatter};
 use std::num::NonZeroU8;
@@ -22,8 +21,6 @@ use derive_more::{Deref, Display};
 /// it. This data never changes, so it is exchanged around in an [`Arc`].
 #[derive(Clone, Deref)]
 pub struct Skin {
-    /// The loader allocated for this skin.
-    loader: Arc<Box<dyn SkinLoader>>,
     /// The skin index
     index: Arc<spr2::Index>,
     /// The skin description.
@@ -33,8 +30,8 @@ pub struct Skin {
 
 impl Skin {
     /// Reads a patch from the skin.
-    pub fn read(&self, name: Name) -> Result<DoomPatch, LoaderError> {
-        self.loader.read(name)
+    pub fn read(&self, name: &Name) -> Result<Patch, Error> {
+        self.index.read(name)
     }
 
     /// Iterates over all unique skin sprite names.
@@ -189,7 +186,7 @@ impl SpriteAngle {
 pub struct Sprite {
     name: SpriteName,
     #[deref]
-    patch: DoomPatch,
+    patch: Patch,
 }
 
 impl Sprite {
@@ -235,6 +232,7 @@ impl Sprite {
     }
 }
 
+/// An error that can occur during name conversions.
 #[derive(Debug, Display)]
 #[display("invalid sprite name \"{name}\": {kind}")]
 pub struct FromNameError {

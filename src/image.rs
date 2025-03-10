@@ -1,14 +1,15 @@
 //! The image encoding utilities.
 
 use crate::doom::patch::{Palette, Patch, PALETTE_COLORS};
-use crate::skin::{loader::Error, Skin};
+use crate::skin::Skin;
 use crate::spray::Spray;
+use crate::Error;
 
 use std::io::Write;
 
 use bevy_color::{Color, ColorToPacked, Srgba};
 
-use derive_more::{Display, Error, From};
+use derive_more::{Display, From};
 
 use wad::Name;
 
@@ -49,7 +50,7 @@ impl<'a> Encoder<'a> {
     where
         W: Write,
     {
-        let patch = self.skin_data.read(name)?;
+        let patch = self.skin_data.read(&name)?;
         patch_to_image(writer, &patch, &self.palette)
     }
 
@@ -93,7 +94,7 @@ impl<'a> Encoder<'a> {
             return self.sprite(writer, spr2.name);
         }
 
-        let patch = self.skin_data.read(spr2.name)?;
+        let patch = self.skin_data.read(&spr2.name)?;
         let width = (patch.width as f32 * options.scale) as u16;
         let height = (patch.height as f32 * options.scale) as u16;
 
@@ -117,7 +118,7 @@ impl<'a> Encoder<'a> {
 
         // get other angles
         for spr2 in angles.into_iter().rev() {
-            let patch = self.skin_data.read(spr2.name)?;
+            let patch = self.skin_data.read(&spr2.name)?;
             patch_to_gif_frame(
                 &mut gif,
                 &patch,

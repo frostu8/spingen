@@ -3,20 +3,23 @@
 pub mod components;
 pub mod doom;
 pub mod image;
+pub mod lump;
 pub mod pages;
 pub mod skin;
 pub mod spray;
 
 use crate::components::header::Header;
 use crate::pages::home::Home;
-use crate::skin::{loader::Pk3Loader, Skin};
+use crate::skin::Skin;
 use crate::spray::{sprays, Spray};
 
 use leptos::prelude::*;
 use leptos_meta::*;
 use leptos_router::{components::*, path};
 
-use derive_more::Deref;
+use derive_more::{Deref, Display, Error, From};
+
+use std::io;
 
 use gloo::file::{futures::read_as_bytes, File};
 
@@ -103,7 +106,29 @@ async fn load_pk3(file: File) -> Result<Vec<Skin>, Report> {
         .wrap_err_with(|| format!("failed to read file {:?}", file.name()))?;
 
     // open zip file
-    let loader = Pk3Loader::new(data).wrap_err("failed to read pk3")?;
+    let loader = crate::skin::loader::load_pk3(data).wrap_err("failed to read pk3")?;
 
-    Ok(loader.iter().collect())
+    Ok(loader.into_iter().map(|(_, v)| v).collect())
+}
+
+/// Loader errors.
+#[derive(Debug, Display, Error, From)]
+pub enum Error {
+    #[display("malformed pk3: {_0}")]
+    Zip(zip::result::ZipError),
+    Io(io::Error),
+    Patch(crate::doom::patch::Error),
+    Name(skin::FromNameError),
+    #[display("soc {_0:?}: {_1}")]
+    #[from(ignore)]
+    Deser(String, crate::doom::soc::Error),
+    #[display("sprite \"{_0}\" not found")]
+    NotFound(#[error(not(source))] String),
+}
+
+impl Error {
+    /// Checks if the error is a not found error.
+    pub fn not_found(&self) -> bool {
+        matches!(self, Error::NotFound(..))
+    }
 }

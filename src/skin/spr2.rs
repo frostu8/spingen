@@ -7,14 +7,18 @@ use ahash::{HashMap, HashSet};
 
 use wad::Name;
 
-use super::SpriteAngle;
+use crate::doom::patch::Patch;
+use crate::lump::Lump;
 
-use derive_more::Display;
+use super::{Error, FromNameError, FromNameErrorKind, SpriteAngle};
+
+use std::io::Cursor;
 
 /// A SPR2 map.
 #[derive(Clone, Debug, Default)]
 pub struct Index {
     sprites: HashMap<SpriteIndex, Spr2>,
+    patches: HashMap<Name, Lump>,
 }
 
 impl Index {
@@ -27,12 +31,13 @@ impl Index {
     ///
     /// If this method returns `Err`, the `Index` will still be in a valid
     /// state.
-    pub fn add(&mut self, name: Name) -> Result<(), Error> {
+    pub fn add(&mut self, name: Name, patch: Lump) -> Result<(), Error> {
         if name.as_str().len() < 6 {
-            return Err(Error {
+            return Err(FromNameError {
                 name,
-                kind: ErrorKind::InvalidLength(name.as_str().len()),
-            });
+                kind: FromNameErrorKind::InvalidLength(name.as_str().len()),
+            }
+            .into());
         }
 
         // get identifier from name
@@ -41,26 +46,22 @@ impl Index {
         // get default sprite
         let frame = name[4];
         let Some(angle) = SpriteAngle::from_ascii_char(name[5]) else {
-            return Err(Error {
+            return Err(FromNameError {
                 name,
-                kind: ErrorKind::InvalidAngle(name[5] as char),
-            });
+                kind: FromNameErrorKind::InvalidAngle(name[5] as char),
+            }
+            .into());
         };
-
-        self.insert(Spr2::new(
-            SpriteIndex::new(identifier, frame, angle),
-            name,
-            false,
-        ));
 
         // get mirror sprite
         if name.as_str().len() >= 8 {
             let frame = name[6];
             let Some(angle) = SpriteAngle::from_ascii_char(name[7]) else {
-                return Err(Error {
+                return Err(FromNameError {
                     name,
-                    kind: ErrorKind::InvalidAngle(name[7] as char),
-                });
+                    kind: FromNameErrorKind::InvalidAngle(name[7] as char),
+                }
+                .into());
             };
 
             self.insert(Spr2::new(
@@ -70,7 +71,25 @@ impl Index {
             ));
         }
 
+        self.insert(Spr2::new(
+            SpriteIndex::new(identifier, frame, angle),
+            name,
+            false,
+        ));
+
+        // add patch
+        self.patches.insert(name, patch);
+
         Ok(())
+    }
+
+    /// Gets a patch.
+    pub fn read(&self, name: &Name) -> Result<Patch, Error> {
+        self.patches
+            .get(name)
+            .ok_or_else(|| Error::NotFound(name.to_string()))
+            .and_then(|lump| lump.clone().read())
+            .and_then(|bytes| Patch::read(Cursor::new(bytes)).map_err(From::from))
     }
 
     /// Iterates over all the unique sprite names.
@@ -145,33 +164,4 @@ impl Spr2 {
             mirror,
         }
     }
-}
-
-/// An error type for indexing.
-#[derive(Debug, Display)]
-#[display("invalid sprite name \"{name}\": {kind}")]
-pub struct Error {
-    name: Name,
-    kind: ErrorKind,
-}
-
-impl std::error::Error for Error {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match &self.kind {
-            ErrorKind::Name(wad) => Some(wad),
-            _ => None,
-        }
-    }
-}
-
-/// The kind of error.
-#[derive(Debug, Display)]
-pub enum ErrorKind {
-    #[display("invalid len {_0}")]
-    InvalidLength(usize),
-    #[display("invalid frame {_0}")]
-    InvalidFrame(char),
-    #[display("invalid angle {_0}")]
-    InvalidAngle(char),
-    Name(wad::NameParseError),
 }
