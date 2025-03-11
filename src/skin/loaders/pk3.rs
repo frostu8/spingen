@@ -4,7 +4,7 @@ use std::io::{Cursor, Read};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use crate::doom::{skin::SkinDefine, soc};
+use crate::doom::skin::SkinDefine;
 use crate::lump::Lump;
 use crate::skin::{spr2, Error, Skin};
 
@@ -45,10 +45,8 @@ impl Pk3SkinLoader {
         drop(entry);
 
         // parse entry
-        let mut parser = soc::Parser::new(&s_skin);
-        let skin_define = parser
-            .deserialize::<SkinDefine>()
-            .map_err(|err| Error::Deser(skin_path.display().to_string(), err))?;
+        let skin_define = SkinDefine::read(&s_skin)
+            .map_err(|err| Error::Skin(skin_path.display().to_string(), err))?;
 
         // read all related sprites
         let mut index = spr2::Index::default();

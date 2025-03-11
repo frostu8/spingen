@@ -136,9 +136,9 @@ pub enum Error {
     Io(io::Error),
     Patch(crate::doom::patch::Error),
     Name(skin::FromNameError),
-    #[display("soc {_0:?}: {_1}")]
+    #[display("invalid skin {_0:?}: {_1}")]
     #[from(ignore)]
-    Deser(String, crate::doom::soc::Error),
+    Skin(String, crate::doom::skin::Error),
     #[display("sprite \"{_0}\" not found")]
     NotFound(#[error(not(source))] String),
 }

@@ -1,9 +1,11 @@
 //! ZDoom skins, and skin definitions.
 
-use serde::Deserialize;
+use derive_more::{Display, Error};
+
+use super::value::{deserialize, Error as ValueError};
 
 /// A skin definition.
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug)]
 pub struct SkinDefine {
     /// The name that identifies this skin.
     pub name: String,
@@ -13,12 +15,97 @@ pub struct SkinDefine {
     /// spaces in UI, so `spingen` will replace any underscores with spaces.
     pub realname: String,
     /// The start color for spray replacement.
-    #[serde(default = "default_startcolor")]
     pub startcolor: u8,
     /// The preferred color of the racer.
     ///
     /// In `spingen`, it will automatically select this color.
     pub prefcolor: String,
+}
+
+impl SkinDefine {
+    /// Reads a skin define from a lump.
+    pub fn read(input: &str) -> Result<SkinDefine, Error> {
+        let mut name = None::<String>;
+        let mut realname = None::<String>;
+        let mut startcolor = default_startcolor();
+        let mut prefcolor = None::<String>;
+
+        for (line_no, line) in input.lines().enumerate() {
+            let Some(ix) = line.find('=') else {
+                return Err(Error {
+                    kind: ErrorKind::MissingValue(Position {
+                        line: line_no,
+                        col: line.chars().count(),
+                    }),
+                });
+            };
+            let (key, rest) = line.split_at(ix);
+            let key = key.trim();
+
+            let parse_err = |err| Error {
+                kind: ErrorKind::InvalidValue(
+                    Position {
+                        // +1 to skip over '='
+                        col: line[..ix].chars().count() + 1,
+                        line: line_no,
+                    },
+                    err,
+                ),
+            };
+
+            if key.eq_ignore_ascii_case("name") {
+                name = Some(deserialize(rest).map_err(parse_err)?);
+            } else if key.eq_ignore_ascii_case("realname") {
+                realname = Some(deserialize(rest).map_err(parse_err)?);
+            } else if key.eq_ignore_ascii_case("prefcolor") {
+                prefcolor = Some(deserialize(rest).map_err(parse_err)?);
+            } else if key.eq_ignore_ascii_case("startcolor") {
+                startcolor = deserialize(rest).map_err(parse_err)?;
+            }
+        }
+
+        Ok(SkinDefine {
+            name: name.ok_or_else(|| Error::missing_field("name"))?,
+            realname: realname.ok_or_else(|| Error::missing_field("realname"))?,
+            prefcolor: prefcolor.ok_or_else(|| Error::missing_field("prefcolor"))?,
+            startcolor,
+        })
+    }
+}
+
+/// An error for loading a skin define.
+#[derive(Debug, Display, Error)]
+pub struct Error {
+    kind: ErrorKind,
+}
+
+impl Error {
+    fn missing_field(field: &'static str) -> Error {
+        Error {
+            kind: ErrorKind::MissingField(field),
+        }
+    }
+}
+
+/// A position in a file.
+#[derive(Debug, Display, Clone, Copy, PartialEq, Eq, Hash)]
+#[display("{line}:{col}")]
+pub struct Position {
+    pub line: usize,
+    pub col: usize,
+}
+
+#[derive(Debug, Display)]
+pub enum ErrorKind {
+    /// The define is missing a required field.
+    #[display("missing field \"{_0}\"")]
+    MissingField(&'static str),
+    /// A value pailed to parse
+    #[display("@ {_0} {_1}")]
+    InvalidValue(Position, ValueError),
+    /// The define does not have a value.
+    #[display("@ {_0} expected '='")]
+    MissingValue(Position),
 }
 
 fn default_startcolor() -> u8 {

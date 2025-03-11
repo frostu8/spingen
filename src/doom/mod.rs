@@ -6,3 +6,4 @@ pub mod patch;
 pub mod skin;
 pub mod soc;
 pub mod spray;
+pub mod value;
