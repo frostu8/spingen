@@ -1,6 +1,6 @@
 //! Discovers and compiles all skins.
 
-pub mod loader;
+pub mod loaders;
 pub mod spr2;
 
 use crate::doom::{patch::Patch, skin::SkinDefine};

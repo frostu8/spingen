@@ -10,7 +10,7 @@ pub mod spray;
 
 use crate::components::header::Header;
 use crate::pages::home::Home;
-use crate::skin::Skin;
+use crate::skin::{loaders::Pk3SkinLoader, Skin};
 use crate::spray::{sprays, Spray};
 
 use leptos::prelude::*;
@@ -23,7 +23,7 @@ use std::io;
 
 use gloo::file::{futures::read_as_bytes, File};
 
-use eyre::{Report, WrapErr};
+use eyre::Report;
 
 use bytes::Bytes;
 
@@ -41,13 +41,43 @@ pub fn App() -> impl IntoView {
     let on_file = move |file: File| {
         // try to load file
         wasm_bindgen_futures::spawn_local(async move {
-            match load_pk3(file).await {
-                // merge with list
-                Ok(skins) => set_skins_raw.update(move |data| data.extend(skins)),
+            let data = match read_as_bytes(&file).await.map(|bytes| Bytes::from(bytes)) {
+                Ok(data) => data,
                 Err(err) => {
-                    // TODO: show error to user
-                    leptos::logging::error!("{:?}", err);
+                    // TODO show to user
+                    leptos::logging::error!(
+                        "{:?}",
+                        Report::from(err).wrap_err("failed reading file")
+                    );
+                    return;
                 }
+            };
+
+            let pk3 = match Pk3SkinLoader::new(data) {
+                Ok(pk3) => pk3,
+                Err(err) => {
+                    leptos::logging::error!(
+                        "{:?}",
+                        Report::from(err).wrap_err("failed reading pk3")
+                    );
+                    return;
+                }
+            };
+            let new_skins = pk3
+                .filter_map(|skin| match skin {
+                    Ok(skin) => Some(skin),
+                    Err(err) => {
+                        leptos::logging::error!(
+                            "{:?}",
+                            Report::from(err).wrap_err("failed reading skin")
+                        );
+                        None
+                    }
+                })
+                .collect::<Vec<_>>();
+
+            if !new_skins.is_empty() {
+                set_skins_raw.update(|skins| skins.extend(new_skins));
             }
         });
     };
@@ -96,19 +126,6 @@ pub struct SkinWithOptions {
     #[deref]
     skin: Skin,
     pub spray: ArcRwSignal<Option<Spray>>,
-}
-
-async fn load_pk3(file: File) -> Result<Vec<Skin>, Report> {
-    // read all data
-    let data = read_as_bytes(&file)
-        .await
-        .map(|bytes| Bytes::from(bytes))
-        .wrap_err_with(|| format!("failed to read file {:?}", file.name()))?;
-
-    // open zip file
-    let loader = crate::skin::loader::load_pk3(data).wrap_err("failed to read pk3")?;
-
-    Ok(loader.into_iter().map(|(_, v)| v).collect())
 }
 
 /// Loader errors.

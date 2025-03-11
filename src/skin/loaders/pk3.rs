@@ -1,4 +1,4 @@
-//! Different loaders.
+//! PK3 loaders.
 
 use std::io::{Cursor, Read};
 use std::path::{Path, PathBuf};
@@ -6,44 +6,32 @@ use std::sync::Arc;
 
 use crate::doom::{skin::SkinDefine, soc};
 use crate::lump::Lump;
-
-use super::{spr2, Error, Skin};
-
-use ahash::{HashMap, HashMapExt};
+use crate::skin::{spr2, Error, Skin};
 
 use bytes::Bytes;
 
 use wad::Name;
 use zip::ZipArchive;
 
-/// Loads all the skins from a given PK3.
-pub fn load_pk3(bytes: impl Into<Bytes>) -> Result<HashMap<String, Skin>, Error> {
-    let bytes = bytes.into();
-    let mut zip = ZipArchive::new(Cursor::new(bytes))?;
+/// A PK3 skin loader.
+#[derive(Clone, Debug)]
+pub struct Pk3SkinLoader {
+    zip: ZipArchive<Cursor<Bytes>>,
+    file_index: usize,
+}
 
-    // find all S_SKIN defines
-    let s_skins = (0..zip.len())
-        .filter_map(|i| -> Option<Result<_, Error>> {
-            let entry = match zip.by_index_raw(i) {
-                Ok(entry) => entry,
-                Err(err) => return Some(Err(Error::from(err))),
-            };
+impl Pk3SkinLoader {
+    /// Creates a new PK3 loader.
+    pub fn new(bytes: impl Into<Bytes>) -> Result<Pk3SkinLoader, Error> {
+        let bytes = bytes.into();
+        ZipArchive::new(Cursor::new(bytes))
+            .map(|zip| Pk3SkinLoader { zip, file_index: 0 })
+            .map_err(From::from)
+    }
 
-            match Path::new(entry.name()).file_stem().and_then(|s| s.to_str()) {
-                Some(name) if name == "S_SKIN" => Some(Ok(i)),
-                Some(_) => None,
-                // ignore misplaced skin definitions at top level
-                None => None,
-            }
-        })
-        .collect::<Result<Vec<_>, Error>>()?;
-
-    // now, create a skin for each define
-    let mut skins = HashMap::with_capacity(s_skins.len());
-
-    for file_index in s_skins {
+    fn read_skin(&mut self, ix: usize) -> Result<Skin, Error> {
         // get s_skin entry
-        let mut entry = zip.by_index(file_index)?;
+        let mut entry = self.zip.by_index(ix)?;
 
         // get path prefix
         let skin_path = Path::new(entry.name())
@@ -66,8 +54,8 @@ pub fn load_pk3(bytes: impl Into<Bytes>) -> Result<HashMap<String, Skin>, Error>
         let mut index = spr2::Index::default();
         let mut in_sounds = false;
 
-        for i in 0..zip.len() {
-            let entry = zip.by_index_raw(i)?;
+        for i in 0..self.zip.len() {
+            let entry = self.zip.by_index_raw(i)?;
             let path = Path::new(entry.name());
 
             if let Ok(name) = path.strip_prefix(&skin_path) {
@@ -110,20 +98,43 @@ pub fn load_pk3(bytes: impl Into<Bytes>) -> Result<HashMap<String, Skin>, Error>
                 drop(entry);
 
                 // read patch data
-                if let Err(err) = index.add(name, Lump::new_from_zip(zip.clone(), i)) {
+                if let Err(err) = index.add(name, Lump::new_from_zip(self.zip.clone(), i)) {
                     leptos::logging::error!("{:?}", err);
                 }
             }
         }
 
-        skins.insert(
-            skin_define.name.clone(),
-            Skin {
-                skin: Arc::new(skin_define),
-                index: Arc::new(index),
-            },
-        );
+        Ok(Skin {
+            skin: Arc::new(skin_define),
+            index: Arc::new(index),
+        })
     }
+}
 
-    Ok(skins)
+impl Iterator for Pk3SkinLoader {
+    type Item = Result<Skin, Error>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while self.file_index < self.zip.len() {
+            let file_index = self.file_index;
+            self.file_index += 1;
+
+            // find next S_SKIN define
+            let entry = match self.zip.by_index_raw(file_index) {
+                Ok(entry) => entry,
+                Err(err) => return Some(Err(err.into())),
+            };
+
+            let Some(name) = Path::new(entry.name()).file_stem().and_then(|s| s.to_str()) else {
+                continue;
+            };
+
+            if name == "S_SKIN" {
+                drop(entry);
+                return Some(self.read_skin(file_index));
+            }
+        }
+
+        None
+    }
 }
