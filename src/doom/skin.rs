@@ -30,7 +30,7 @@ impl SkinDefine {
         let mut startcolor = default_startcolor();
         let mut prefcolor = None::<String>;
 
-        for (line_no, line) in input.lines().enumerate() {
+        for (line_no, line) in input.lines().enumerate().map(|(no, inner)| (no + 1, inner)) {
             let Some(ix) = line.find('=') else {
                 return Err(Error {
                     kind: ErrorKind::MissingValue(Position {
@@ -40,6 +40,8 @@ impl SkinDefine {
                 });
             };
             let (key, rest) = line.split_at(ix);
+
+            let rest = &rest[1..]; // skip '='
             let key = key.trim();
 
             let parse_err = |err| Error {

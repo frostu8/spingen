@@ -108,6 +108,8 @@ where
                                 Scale::Times2 => 2.0,
                                 Scale::Times3 => 3.0,
                                 Scale::Times4 => 4.0,
+                                Scale::Times6 => 6.0,
+                                Scale::Times8 => 8.0,
                             },
                             ..Default::default()
                         }
@@ -180,12 +182,24 @@ enum Scale {
     Times3,
     #[display("x4")]
     Times4,
+    #[display("x6")]
+    Times6,
+    #[display("x8")]
+    Times8,
 }
 
 impl Scale {
     /// Iterates over all possible values of [`Scale`].
     pub fn iter() -> impl Iterator<Item = Scale> + ExactSizeIterator {
-        [Scale::Times1, Scale::Times2, Scale::Times3, Scale::Times4].into_iter()
+        [
+            Scale::Times1,
+            Scale::Times2,
+            Scale::Times3,
+            Scale::Times4,
+            Scale::Times6,
+            Scale::Times8,
+        ]
+        .into_iter()
     }
 }
 
@@ -202,6 +216,8 @@ impl FromStr for Scale {
             "x2" => Ok(Scale::Times2),
             "x3" => Ok(Scale::Times3),
             "x4" => Ok(Scale::Times4),
+            "x6" => Ok(Scale::Times6),
+            "x8" => Ok(Scale::Times8),
             _ => Err(NotAScaleError),
         }
     }

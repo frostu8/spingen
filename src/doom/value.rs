@@ -296,7 +296,7 @@ pub fn deserialize<'a, T>(input: &'a str) -> Result<T, Error>
 where
     T: Deserialize<'a>,
 {
-    T::deserialize(ValueDeserializer(input))
+    T::deserialize(ValueDeserializer::new(input))
 }
 
 /// Deserializes a string into a useful type.
@@ -304,5 +304,5 @@ pub fn deserialize_seed<'a, T, U>(input: &'a str, seed: T) -> Result<U, Error>
 where
     T: DeserializeSeed<'a, Value = U>,
 {
-    seed.deserialize(ValueDeserializer(input))
+    seed.deserialize(ValueDeserializer::new(input))
 }
