@@ -208,8 +208,52 @@ impl<'de> Deserializer<'de> for ValueDeserializer<'de> {
         visitor.visit_some(self)
     }
 
+    fn deserialize_byte_buf<V>(mut self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        let mut bytes = Vec::new();
+
+        while self.0.len() > 0 {
+            // get next value in comma seperated list
+            if let Some((value, next)) = self.0.split_once(',') {
+                self.0 = next;
+                let value = value.parse::<u8>()?;
+                bytes.push(value);
+            } else {
+                let value = self.0;
+                self.0 = "";
+                let value = value.parse::<u8>()?;
+                bytes.push(value);
+            }
+        }
+
+        visitor.visit_byte_buf(bytes)
+    }
+
+    fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        self.deserialize_byte_buf(visitor)
+    }
+
+    fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        visitor.visit_seq(self)
+    }
+
+    fn deserialize_tuple<V>(self, _len: usize, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        visitor.visit_seq(self)
+    }
+
     forward_to_deserialize_any! {
-        bytes byte_buf unit unit_struct newtype_struct seq tuple
+        unit unit_struct newtype_struct
         tuple_struct map struct enum identifier ignored_any
     }
 }
@@ -225,11 +269,13 @@ impl<'de> de::SeqAccess<'de> for ValueDeserializer<'de> {
             // get next value in comma seperated list
             if let Some((value, next)) = self.0.split_once(',') {
                 self.0 = next;
-                seed.deserialize(ValueDeserializer(value)).map(|s| Some(s))
+                seed.deserialize(ValueDeserializer::new(value))
+                    .map(|s| Some(s))
             } else {
                 let value = self.0;
                 self.0 = "";
-                seed.deserialize(ValueDeserializer(value)).map(|s| Some(s))
+                seed.deserialize(ValueDeserializer::new(value))
+                    .map(|s| Some(s))
             }
         } else {
             Ok(None)

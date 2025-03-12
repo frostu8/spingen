@@ -1,4 +1,6 @@
-//! Spray can types.
+//! Spray can types and loading.
+
+pub mod loaders;
 
 use crate::doom::spray::{sprays as doom_sprays, Spray as DoomSpray};
 

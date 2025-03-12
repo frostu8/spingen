@@ -10,7 +10,9 @@ use serde::{
     forward_to_deserialize_any,
 };
 
-use derive_more::{Display, Error};
+use crate::doom::value::{self, ValueDeserializer};
+
+use derive_more::Display;
 
 /// An SOC parser.
 #[derive(Clone, Debug)]
@@ -39,7 +41,7 @@ impl<'a> Parser<'a> {
 
     fn line_ended(&mut self) -> bool {
         let (cont, ix) = scan_whitespace(self.input);
-        self.input = &self.input[ix..];
+        self.input = &self.input[min(ix, self.input.len())..];
         !cont
     }
 }
@@ -196,230 +198,40 @@ impl<'a, 'de> de::MapAccess<'de> for Deserializer<'a, 'de> {
             return Err(Error::custom("next_value called before next_key"));
         };
 
-        seed.deserialize(ValueDeserializer(value))
-    }
-}
-
-/// Wraps a string value, exposing some common, obvious parsing details.
-pub struct ValueDeserializer<'de>(&'de str);
-
-impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
-    type Error = Error;
-
-    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        self.deserialize_str(visitor)
-    }
-
-    fn deserialize_str<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        visitor.visit_str(self.0)
-    }
-
-    fn deserialize_string<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        visitor.visit_string(self.0.to_owned())
-    }
-
-    fn deserialize_u8<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        self.0
-            .parse::<u8>()
-            .map_err(|e| Error::custom(e))
-            .and_then(|data| visitor.visit_u8(data))
-    }
-
-    fn deserialize_u16<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        self.0
-            .parse::<u16>()
-            .map_err(|e| Error::custom(e))
-            .and_then(|data| visitor.visit_u16(data))
-    }
-
-    fn deserialize_u32<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        self.0
-            .parse::<u32>()
-            .map_err(|e| Error::custom(e))
-            .and_then(|data| visitor.visit_u32(data))
-    }
-
-    fn deserialize_u64<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        self.0
-            .parse::<u64>()
-            .map_err(|e| Error::custom(e))
-            .and_then(|data| visitor.visit_u64(data))
-    }
-
-    fn deserialize_u128<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        self.0
-            .parse::<u128>()
-            .map_err(|e| Error::custom(e))
-            .and_then(|data| visitor.visit_u128(data))
-    }
-
-    fn deserialize_i8<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        self.0
-            .parse::<i8>()
-            .map_err(|e| Error::custom(e))
-            .and_then(|data| visitor.visit_i8(data))
-    }
-
-    fn deserialize_i16<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        self.0
-            .parse::<i16>()
-            .map_err(|e| Error::custom(e))
-            .and_then(|data| visitor.visit_i16(data))
-    }
-
-    fn deserialize_i32<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        self.0
-            .parse::<i32>()
-            .map_err(|e| Error::custom(e))
-            .and_then(|data| visitor.visit_i32(data))
-    }
-
-    fn deserialize_i64<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        self.0
-            .parse::<i64>()
-            .map_err(|e| Error::custom(e))
-            .and_then(|data| visitor.visit_i64(data))
-    }
-
-    fn deserialize_i128<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        self.0
-            .parse::<i128>()
-            .map_err(|e| Error::custom(e))
-            .and_then(|data| visitor.visit_i128(data))
-    }
-
-    fn deserialize_f32<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        self.0
-            .parse::<f32>()
-            .map_err(|e| Error::custom(e))
-            .and_then(|data| visitor.visit_f32(data))
-    }
-
-    fn deserialize_f64<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        self.0
-            .parse::<f64>()
-            .map_err(|e| Error::custom(e))
-            .and_then(|data| visitor.visit_f64(data))
-    }
-
-    fn deserialize_char<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        if self.0.chars().count() == 1 {
-            let ch = self.0.chars().next().unwrap();
-            visitor.visit_char(ch)
-        } else {
-            Err(Error::custom(format!("expected char, got {:?}", self.0)))
-        }
-    }
-
-    fn deserialize_bool<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        if self.0.eq_ignore_ascii_case("TRUE")
-            || self.0.eq_ignore_ascii_case("YES")
-            || self.0.eq_ignore_ascii_case("1")
-        {
-            visitor.visit_bool(true)
-        } else if self.0.eq_ignore_ascii_case("FALSE")
-            || self.0.eq_ignore_ascii_case("NO")
-            || self.0.eq_ignore_ascii_case("0")
-        {
-            visitor.visit_bool(false)
-        } else {
-            Err(Error::custom(format!("expected bool, got {:?}", self.0)))
-        }
-    }
-
-    fn deserialize_option<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        visitor.visit_some(self)
-    }
-
-    forward_to_deserialize_any! {
-        bytes byte_buf unit unit_struct newtype_struct seq tuple
-        tuple_struct map struct enum identifier ignored_any
-    }
-}
-
-impl<'de> de::SeqAccess<'de> for ValueDeserializer<'de> {
-    type Error = Error;
-
-    fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Self::Error>
-    where
-        T: de::DeserializeSeed<'de>,
-    {
-        if self.0.len() > 0 {
-            // get next value in comma seperated list
-            if let Some((value, next)) = self.0.split_once(',') {
-                self.0 = next;
-                seed.deserialize(ValueDeserializer(value)).map(|s| Some(s))
-            } else {
-                let value = self.0;
-                self.0 = "";
-                seed.deserialize(ValueDeserializer(value)).map(|s| Some(s))
-            }
-        } else {
-            Ok(None)
-        }
+        seed.deserialize(ValueDeserializer::new(value))
+            .map_err(From::from)
     }
 }
 
 /// A deserializer error.
-#[derive(Debug, Display, Error)]
-#[display("{msg}")]
+#[derive(Debug, Display)]
+#[display("{kind}")]
 pub struct Error {
-    #[error(not(source))]
-    msg: String,
+    kind: ErrorKind,
+}
+
+#[derive(Debug, Display)]
+pub enum ErrorKind {
+    #[display("invalid value")]
+    Value(value::Error),
+    Message(String),
+}
+
+impl From<value::Error> for Error {
+    fn from(value: value::Error) -> Self {
+        Error {
+            kind: ErrorKind::Value(value),
+        }
+    }
+}
+
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match &self.kind {
+            ErrorKind::Value(err) => Some(err),
+            _ => None,
+        }
+    }
 }
 
 impl de::Error for Error {
@@ -428,7 +240,7 @@ impl de::Error for Error {
         T: std::fmt::Display,
     {
         Error {
-            msg: msg.to_string(),
+            kind: ErrorKind::Message(msg.to_string()),
         }
     }
 }

@@ -11,7 +11,7 @@ pub mod spray;
 use crate::components::header::Header;
 use crate::pages::home::Home;
 use crate::skin::{loaders::Pk3SkinLoader, Skin};
-use crate::spray::{sprays, Spray};
+use crate::spray::{loaders::Pk3SprayLoader, sprays, Spray};
 
 use leptos::prelude::*;
 use leptos_meta::*;
@@ -34,7 +34,7 @@ pub fn App() -> impl IntoView {
     provide_meta_context();
 
     // the list of loaded sprays
-    let (sprays, _set_sprays) = signal(sprays());
+    let (sprays, set_sprays) = signal(sprays());
 
     // the raw skin datas, this will be used to create the normal skin datas
     let (skins_raw, set_skins_raw) = signal(im::Vector::<Skin>::new());
@@ -53,7 +53,36 @@ pub fn App() -> impl IntoView {
                 }
             };
 
-            let pk3 = match Pk3SkinLoader::new(data) {
+            // load all sprays first
+            let pk3 = match Pk3SprayLoader::new(data.clone()) {
+                Ok(pk3) => pk3,
+                Err(err) => {
+                    leptos::logging::error!(
+                        "{:?}",
+                        Report::from(err).wrap_err("failed reading pk3")
+                    );
+                    return;
+                }
+            };
+            let new_sprays = pk3
+                .filter_map(|spray| match spray {
+                    Ok(spray) => Some(spray),
+                    Err(err) => {
+                        leptos::logging::error!(
+                            "{:?}",
+                            Report::from(err).wrap_err("failed reading spray")
+                        );
+                        None
+                    }
+                })
+                .collect::<Vec<_>>();
+
+            if !new_sprays.is_empty() {
+                set_sprays.update(|sprays| sprays.extend(new_sprays));
+            }
+
+            // load all skins
+            let pk3 = match Pk3SkinLoader::new(data.clone()) {
                 Ok(pk3) => pk3,
                 Err(err) => {
                     leptos::logging::error!(
