@@ -143,19 +143,21 @@ main {
 .skin-show {
   flex-grow: 1;
   display: flex;
-  flex-flow: column wrap;
+  flex-flow: column nowrap;
   justify-content: center;
-}
 
-.skin-show img {
-  margin: var(--size-6);
-  object-fit: contain;
-  flex-grow: 1;
-  image-rendering: pixelated;
-}
+  img {
+    margin: var(--size-6);
+    object-fit: contain;
+    flex: 1 1 auto;
+    image-rendering: pixelated;
+    min-width: 0;
+    min-height: 0;
+  }
 
-.skin-show p {
-  margin: var(--size-5);
+  p {
+    margin: var(--size-5);
+  }
 }
 
 .skin-show-controls {
