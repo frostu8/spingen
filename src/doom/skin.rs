@@ -20,6 +20,14 @@ pub struct SkinDefine {
     ///
     /// In `spingen`, it will automatically select this color.
     pub prefcolor: String,
+    /// The kart speed.
+    ///
+    /// Default is `5`.
+    pub kartspeed: i32,
+    /// The kart weight.
+    ///
+    /// Default is `5`.
+    pub kartweight: i32,
 }
 
 impl SkinDefine {
@@ -29,6 +37,11 @@ impl SkinDefine {
         let mut realname = None::<String>;
         let mut startcolor = default_startcolor();
         let mut prefcolor = None::<String>;
+
+        // we are also looking for class information, just if a user might want
+        // to see their class as well.
+        let mut kartspeed = 5;
+        let mut kartweight = 5;
 
         for (line_no, line) in input.lines().enumerate().map(|(no, inner)| (no + 1, inner)) {
             let Some(ix) = line.find('=') else {
@@ -63,6 +76,10 @@ impl SkinDefine {
                 prefcolor = Some(deserialize(rest).map_err(parse_err)?);
             } else if key.eq_ignore_ascii_case("startcolor") {
                 startcolor = deserialize(rest).map_err(parse_err)?;
+            } else if key.eq_ignore_ascii_case("kartspeed") {
+                kartspeed = deserialize(rest).map_err(parse_err)?;
+            } else if key.eq_ignore_ascii_case("kartweight") {
+                kartweight = deserialize(rest).map_err(parse_err)?;
             }
         }
 
@@ -71,6 +88,8 @@ impl SkinDefine {
             realname: realname.ok_or_else(|| Error::missing_field("realname"))?,
             prefcolor: prefcolor.ok_or_else(|| Error::missing_field("prefcolor"))?,
             startcolor,
+            kartspeed,
+            kartweight,
         })
     }
 }

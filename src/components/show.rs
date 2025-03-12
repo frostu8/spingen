@@ -9,10 +9,13 @@ use std::str::FromStr;
 use crate::components::{
     frame_select::FrameSelect, skin_show::SkinShow, sprite_select::SpriteSelect,
 };
+use crate::doom::skin::SkinDefine;
 use crate::image::GifOptions;
 use crate::pages::home::PageQuery;
 use crate::spray::Spray;
 use crate::SkinWithOptions;
+
+use std::cmp::{max, min};
 
 use derive_more::{Display, Error};
 
@@ -165,11 +168,27 @@ where
                     <strong>
                         { move || skin.with(|skin| skin.as_ref().unwrap().realname.replace('_', " ")) }
                     </strong>
-                    { "." }
+                    { ", a "}
+                    <strong>
+                        { move || skin.with(|skin| class_from_skin(skin.as_ref().unwrap())) }
+                    </strong>
+                    { " driver." }
                 </p>
             </ControlShow>
         </section>
     }
+}
+
+fn class_from_skin(skin: &SkinDefine) -> &'static str {
+    const CLASSES: &[&str] = &[
+        "Class A", "Class B", "Class C", "Class D", "Class E", "Class F", "Class G", "Class H",
+        "Class I",
+    ];
+
+    let x = min((max(skin.kartspeed, 1) as usize - 1) / 3, 2);
+    let y = min((max(skin.kartweight, 1) as usize - 1) / 3, 2);
+
+    CLASSES[y * 3 + x]
 }
 
 #[derive(Debug, Clone, Copy, Display)]
