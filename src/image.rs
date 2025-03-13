@@ -50,8 +50,22 @@ impl<'a> Encoder<'a> {
     where
         W: Write,
     {
+        self.sprite_with_options(writer, name, GifOptions::default())
+    }
+
+    /// Gets a single sprite of the skin by full, qualified name, and encodes
+    /// it as a still PNG.
+    pub fn sprite_with_options<W>(
+        &mut self,
+        writer: W,
+        name: Name,
+        options: GifOptions,
+    ) -> Result<(), EncodeError>
+    where
+        W: Write,
+    {
         let patch = self.skin_data.read(&name)?;
-        patch_to_image(writer, &patch, &self.palette)
+        patch_to_image_with_options(writer, &patch, &self.palette, options)
     }
 
     /// Gets a sprite index, and encodes it as an image.
@@ -91,7 +105,7 @@ impl<'a> Encoder<'a> {
         };
         if angles.len() == 0 {
             // create still png
-            return self.sprite(writer, spr2.name);
+            return self.sprite_with_options(writer, spr2.name, options);
         }
 
         let patch = self.skin_data.read(&spr2.name)?;
@@ -138,7 +152,9 @@ impl<'a> Encoder<'a> {
 pub struct GifOptions {
     /// The factor to upscale by.
     pub scale: f32,
-    /// The delay between each frame, in MS.
+    /// The delay between each frame, in deciseconds.
+    ///
+    /// For PNGs, this is discarded.
     pub delay: u16,
     /// Whether to mirror across the X axis.
     pub mirror: bool,
@@ -208,18 +224,53 @@ pub fn patch_to_image<W>(writer: W, patch: &Patch, palette: &Palette) -> Result<
 where
     W: Write,
 {
-    let mut data = (0..(patch.width as usize * patch.height as usize))
+    patch_to_image_with_options(writer, patch, palette, GifOptions::default())
+}
+
+/// Converts a patch to a still PNG.
+pub fn patch_to_image_with_options<W>(
+    writer: W,
+    patch: &Patch,
+    palette: &Palette,
+    options: GifOptions,
+) -> Result<(), EncodeError>
+where
+    W: Write,
+{
+    // setup resample heights
+    let width = (patch.width as f32 * options.scale) as usize;
+    let height = (patch.height as f32 * options.scale) as usize;
+
+    let mut data = (0..width * height)
         .flat_map(|_| {
             let srgb: Srgba = Color::WHITE.into();
             srgb.to_u8_array().into_iter()
         })
         .collect::<Vec<u8>>();
 
-    for (i, palette_ix) in patch.data.iter().enumerate() {
+    for i in 0..width * height {
+        // sample by nearest neighbor
+        let dest_x = i % width;
+        let dest_y = i / width;
+
+        let src_x = (dest_x as f32 / options.scale) as usize;
+        let src_y = (dest_y as f32 / options.scale) as usize;
+
+        // saturate
+        //let src_x = min(src_x, patch.width as usize - 1);
+        //let src_y = min(src_y, patch.height as usize - 1);
+
+        let src_x = if options.mirror {
+            patch.width as usize - src_x - 1
+        } else {
+            src_x
+        };
+
+        let palette_ix = patch.data[src_y * patch.width as usize + src_x];
         let color_data = &mut data[i * 4..i * 4 + 4];
 
         if let Some(palette_ix) = palette_ix {
-            palette.copy_color(*palette_ix as usize, color_data);
+            palette.copy_color(palette_ix as usize, color_data);
         } else {
             // encode transparent pixel
             palette.copy_color(255, color_data);
@@ -227,7 +278,7 @@ where
         }
     }
 
-    let mut encoder = png::Encoder::new(writer, patch.width.into(), patch.height.into());
+    let mut encoder = png::Encoder::new(writer, width as u32, height as u32);
     encoder.set_color(png::ColorType::Rgba);
     encoder.set_depth(png::BitDepth::Eight);
     encoder.set_source_gamma(png::ScaledFloat::new(1.0 / 2.2)); // 1.0 / 2.2, unscaled, but rounded
