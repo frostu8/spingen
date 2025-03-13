@@ -2,6 +2,7 @@
 //!
 //! These aim to be analogues to internal Ring Racers stuff.
 
+pub mod lua;
 pub mod patch;
 pub mod skin;
 pub mod soc;
