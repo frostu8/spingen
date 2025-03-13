@@ -49,8 +49,6 @@ where
                     { "Click here" }
                 </button>
                 { " to load a pk3."}
-                <br/>
-                <strong>{ "Note:" }</strong> { " Only supports vanilla colors (for now)" }
             </p>
             <input
                 type="file"
