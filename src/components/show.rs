@@ -172,7 +172,11 @@ where
                     <strong>
                         { move || skin.with(|skin| class_from_skin(skin.as_ref().unwrap())) }
                     </strong>
-                    { " driver." }
+                    { " (s" }
+                    { move || skin.with(|skin| skin.as_ref().unwrap().kartspeed.to_string()) }
+                    { ", w" }
+                    { move || skin.with(|skin| skin.as_ref().unwrap().kartweight.to_string()) }
+                    { ") driver." }
                 </p>
             </ControlShow>
         </section>
