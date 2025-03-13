@@ -96,18 +96,7 @@ pub fn App() -> impl IntoView {
                         return;
                     }
                 };
-                let new_skins = pk3
-                    .filter_map(|skin| match skin {
-                        Ok(skin) => Some(skin),
-                        Err(err) => {
-                            leptos::logging::error!(
-                                "{:?}",
-                                Report::from(err).wrap_err("failed reading skin")
-                            );
-                            None
-                        }
-                    })
-                    .collect::<Vec<_>>();
+                let new_skins = from_iter(pk3);
 
                 if !new_skins.is_empty() {
                     set_skins_raw.update(|skins| skins.extend(new_skins));
@@ -123,18 +112,7 @@ pub fn App() -> impl IntoView {
                         return;
                     }
                 };
-                let new_skins = wad
-                    .filter_map(|skin| match skin {
-                        Ok(skin) => Some(skin),
-                        Err(err) => {
-                            leptos::logging::error!(
-                                "{:?}",
-                                Report::from(err).wrap_err("failed reading skin")
-                            );
-                            None
-                        }
-                    })
-                    .collect::<Vec<_>>();
+                let new_skins = from_iter(wad);
 
                 if !new_skins.is_empty() {
                     set_skins_raw.update(|skins| skins.extend(new_skins));
@@ -179,6 +157,20 @@ pub fn App() -> impl IntoView {
             </Routes>
         </Router>
     }
+}
+
+fn from_iter<I>(iter: I) -> Vec<Skin>
+where
+    I: Iterator<Item = Result<Skin, Error>>,
+{
+    iter.filter_map(|skin| match skin {
+        Ok(skin) => Some(skin),
+        Err(err) => {
+            leptos::logging::error!("{:?}", Report::from(err).wrap_err("failed reading skin"));
+            None
+        }
+    })
+    .collect::<Vec<_>>()
 }
 
 /// A skin with reactive options.
