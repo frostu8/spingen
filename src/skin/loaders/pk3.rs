@@ -97,7 +97,7 @@ impl Pk3SkinLoader {
 
                 // read patch data
                 if let Err(err) = index.add(name, Lump::new_from_zip(self.zip.clone(), i)) {
-                    leptos::logging::error!("{:?}", err);
+                    leptos::logging::warn!("{:?}", err);
                 }
             }
         }
@@ -127,7 +127,7 @@ impl Iterator for Pk3SkinLoader {
                 continue;
             };
 
-            if name == "S_SKIN" {
+            if name.eq_ignore_ascii_case("S_SKIN") {
                 drop(entry);
                 return Some(self.read_skin(file_index));
             }

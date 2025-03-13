@@ -48,11 +48,11 @@ where
                 >
                     { "Click here" }
                 </button>
-                { " to load a pk3."}
+                { " to load a pk3 or wad."}
             </p>
             <input
                 type="file"
-                accept=".pk3"
+                accept=".pk3,.wad"
                 multiple="true"
                 class="hidden"
                 on:change=on_input_file

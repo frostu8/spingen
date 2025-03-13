@@ -18,6 +18,7 @@ use leptos_meta::*;
 use leptos_router::{components::*, path};
 
 use derive_more::{Deref, Display, Error, From};
+use skin::loaders::WadSkinLoader;
 
 use std::io;
 
@@ -41,6 +42,7 @@ pub fn App() -> impl IntoView {
     let on_file = move |file: File| {
         // try to load file
         wasm_bindgen_futures::spawn_local(async move {
+            let name = file.name();
             let data = match read_as_bytes(&file).await.map(|bytes| Bytes::from(bytes)) {
                 Ok(data) => data,
                 Err(err) => {
@@ -53,60 +55,90 @@ pub fn App() -> impl IntoView {
                 }
             };
 
-            // load all sprays first
-            let pk3 = match Pk3SprayLoader::new(data.clone()) {
-                Ok(pk3) => pk3,
-                Err(err) => {
-                    leptos::logging::error!(
-                        "{:?}",
-                        Report::from(err).wrap_err("failed reading pk3")
-                    );
-                    return;
-                }
-            };
-            let new_sprays = pk3
-                .filter_map(|spray| match spray {
-                    Ok(spray) => Some(spray),
+            // check if this is a .pk3 or a wad
+            if name.ends_with(".pk3") {
+                // load all sprays first
+                let pk3 = match Pk3SprayLoader::new(data.clone()) {
+                    Ok(pk3) => pk3,
                     Err(err) => {
                         leptos::logging::error!(
                             "{:?}",
-                            Report::from(err).wrap_err("failed reading spray")
+                            Report::from(err).wrap_err("failed reading pk3")
                         );
-                        None
+                        return;
                     }
-                })
-                .collect::<Vec<_>>();
+                };
+                let new_sprays = pk3
+                    .filter_map(|spray| match spray {
+                        Ok(spray) => Some(spray),
+                        Err(err) => {
+                            leptos::logging::error!(
+                                "{:?}",
+                                Report::from(err).wrap_err("failed reading spray")
+                            );
+                            None
+                        }
+                    })
+                    .collect::<Vec<_>>();
 
-            if !new_sprays.is_empty() {
-                set_sprays.update(|sprays| sprays.extend(new_sprays));
-            }
-
-            // load all skins
-            let pk3 = match Pk3SkinLoader::new(data.clone()) {
-                Ok(pk3) => pk3,
-                Err(err) => {
-                    leptos::logging::error!(
-                        "{:?}",
-                        Report::from(err).wrap_err("failed reading pk3")
-                    );
-                    return;
+                if !new_sprays.is_empty() {
+                    set_sprays.update(|sprays| sprays.extend(new_sprays));
                 }
-            };
-            let new_skins = pk3
-                .filter_map(|skin| match skin {
-                    Ok(skin) => Some(skin),
+
+                // load all skins
+                let pk3 = match Pk3SkinLoader::new(data.clone()) {
+                    Ok(pk3) => pk3,
                     Err(err) => {
                         leptos::logging::error!(
                             "{:?}",
-                            Report::from(err).wrap_err("failed reading skin")
+                            Report::from(err).wrap_err("failed reading pk3")
                         );
-                        None
+                        return;
                     }
-                })
-                .collect::<Vec<_>>();
+                };
+                let new_skins = pk3
+                    .filter_map(|skin| match skin {
+                        Ok(skin) => Some(skin),
+                        Err(err) => {
+                            leptos::logging::error!(
+                                "{:?}",
+                                Report::from(err).wrap_err("failed reading skin")
+                            );
+                            None
+                        }
+                    })
+                    .collect::<Vec<_>>();
 
-            if !new_skins.is_empty() {
-                set_skins_raw.update(|skins| skins.extend(new_skins));
+                if !new_skins.is_empty() {
+                    set_skins_raw.update(|skins| skins.extend(new_skins));
+                }
+            } else if name.ends_with(".wad") {
+                let wad = match WadSkinLoader::new(data.clone()) {
+                    Ok(wad) => wad,
+                    Err(err) => {
+                        leptos::logging::error!(
+                            "{:?}",
+                            Report::from(err).wrap_err("failed reading wad")
+                        );
+                        return;
+                    }
+                };
+                let new_skins = wad
+                    .filter_map(|skin| match skin {
+                        Ok(skin) => Some(skin),
+                        Err(err) => {
+                            leptos::logging::error!(
+                                "{:?}",
+                                Report::from(err).wrap_err("failed reading skin")
+                            );
+                            None
+                        }
+                    })
+                    .collect::<Vec<_>>();
+
+                if !new_skins.is_empty() {
+                    set_skins_raw.update(|skins| skins.extend(new_skins));
+                }
             }
         });
     };
@@ -162,6 +194,8 @@ pub struct SkinWithOptions {
 pub enum Error {
     #[display("malformed pk3: {_0}")]
     Zip(zip::result::ZipError),
+    #[display("malformed wad: {_0}")]
+    Wad(wad::Error),
     Io(io::Error),
     Patch(crate::doom::patch::Error),
     Name(skin::FromNameError),
