@@ -20,6 +20,11 @@ impl<'de> LiteralDeserializer<'de> {
         LiteralDeserializer { input }
     }
 
+    /// Extracts the inner `str`.
+    pub fn inner_str(&self) -> &'de str {
+        self.input
+    }
+
     fn inner_any<V>(
         mut self,
         visitor: V,
@@ -107,9 +112,16 @@ impl<'de> Deserializer<'de> for LiteralDeserializer<'de> {
         self.deserialize_seq(visitor)
     }
 
+    fn deserialize_option<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        visitor.visit_some(self)
+    }
+
     forward_to_deserialize_any! {
         bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
-        bytes byte_buf option unit unit_struct newtype_struct
+        bytes byte_buf unit unit_struct newtype_struct
         tuple_struct map struct enum identifier ignored_any
     }
 }
@@ -322,7 +334,7 @@ fn scan_string<'a>(mut input: &'a str) -> (Cow<'a, str>, usize) {
 }
 
 /// Scans the input for whitespace and comments.
-fn scan_whitespace(input: &str) -> usize {
+pub fn scan_whitespace(input: &str) -> usize {
     let mut ix = 0;
 
     while ix < input.len() {
