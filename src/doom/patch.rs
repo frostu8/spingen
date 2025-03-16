@@ -3,6 +3,7 @@
 use std::io::{Read, Seek, SeekFrom};
 use std::ops::{Deref, DerefMut};
 
+use bevy_color::color_difference::EuclideanDistance;
 use bevy_color::{Color, Srgba};
 
 use serde::{Deserialize, Deserializer};
@@ -171,6 +172,23 @@ impl Palette {
         }
 
         Ok(Palette { colors })
+    }
+
+    /// Finds the nearest color to another using euclidian sRGBA distances.
+    pub fn nearest_color(&self, color: Color) -> usize {
+        let mut min_color_ix = 0;
+        let mut min_distance = self.colors[min_color_ix].distance_squared(&color);
+
+        for (i, pal_color) in self.colors.iter().enumerate().skip(1) {
+            let distance = pal_color.distance_squared(&color);
+
+            if distance < min_distance {
+                min_color_ix = i;
+                min_distance = distance;
+            }
+        }
+
+        min_color_ix
     }
 
     /// Copies the color values of an index into the buffer as [`Srgba`].

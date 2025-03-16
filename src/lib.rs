@@ -196,6 +196,8 @@ pub enum Error {
     Skin(String, crate::doom::skin::Error),
     #[display("sprite \"{_0}\" not found")]
     NotFound(#[error(not(source))] String),
+    #[display("sprite \"{_0}\" is malformed")]
+    Image(String, eyre::Report),
 }
 
 impl Error {

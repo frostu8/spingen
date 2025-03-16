@@ -7,12 +7,16 @@ use ahash::{HashMap, HashSet};
 
 use wad::Name;
 
-use crate::doom::patch::Patch;
+use crate::doom::patch::{Palette, Patch};
 use crate::lump::Lump;
 
 use super::{Error, FromNameError, FromNameErrorKind, SpriteAngle};
 
-use std::io::Cursor;
+use std::io::{Cursor, Read, Seek, SeekFrom};
+
+use bevy_color::{Color, ColorToPacked, Srgba};
+
+use eyre::{Report, WrapErr as _};
 
 /// A SPR2 map.
 #[derive(Clone, Debug, Default)]
@@ -88,8 +92,11 @@ impl Index {
         self.patches
             .get(name)
             .ok_or_else(|| Error::NotFound(name.to_string()))
-            .and_then(|lump| lump.clone().read())
-            .and_then(|bytes| Patch::read(Cursor::new(bytes)).map_err(From::from))
+            .and_then(|lump| lump.clone().read().map_err(From::from))
+            .and_then(|bytes| {
+                load_image(Cursor::new(bytes), &Palette::default())
+                    .map_err(|err| Error::Image(name.to_string(), err))
+            })
     }
 
     /// Iterates over all the unique sprite names.
@@ -164,4 +171,74 @@ impl Spr2 {
             mirror,
         }
     }
+}
+
+/// Attempts to load either a truecolor image or a patch.
+pub fn load_image<R>(mut reader: R, palette: &Palette) -> Result<Patch, Report>
+where
+    R: Read + Seek,
+{
+    let cursor = reader.seek(SeekFrom::Current(0))?;
+    if let Ok(patch) = load_truecolor(&mut reader, palette) {
+        Ok(patch)
+    } else {
+        reader.seek(SeekFrom::Start(cursor))?;
+        // try to load as patch
+        Patch::read(&mut reader).map_err(From::from)
+    }
+}
+
+/// Attempts to load a truecolor image as a patch.
+pub fn load_truecolor<R>(mut reader: R, palette: &Palette) -> Result<Patch, Report>
+where
+    R: Read,
+{
+    // decode png
+    let limits = png::Limits::default();
+    let png = png::Decoder::new_with_limits(&mut reader, limits);
+    let mut reader = png.read_info()?;
+
+    let mut frame_buf = vec![0u8; reader.output_buffer_size()];
+    let info = reader.next_frame(&mut frame_buf)?;
+
+    let color_type = info.color_type;
+    let width = u16::try_from(info.width).wrap_err("image width out of bounds")?;
+    let height = u16::try_from(info.height).wrap_err("image height out of bounds")?;
+
+    let data = match color_type {
+        png::ColorType::Rgb => (0..width as usize * height as usize)
+            .map(|i| &frame_buf[i * 3..i * 3 + 3])
+            .map(|color| {
+                let mut buf = [u8::MAX; 4];
+                buf[..3].copy_from_slice(color);
+
+                let color: Color = Srgba::from_u8_array(buf).into();
+                Some(palette.nearest_color(color) as u8)
+            })
+            .collect::<Vec<_>>(),
+        png::ColorType::Rgba => (0..width as usize * height as usize)
+            .map(|i| &frame_buf[i * 3..i * 3 + 3])
+            .map(|color| {
+                let mut buf = [0u8; 4];
+                buf.copy_from_slice(color);
+
+                // mask alpha
+                if buf[3] < 128 {
+                    None
+                } else {
+                    let color: Color = Srgba::from_u8_array(buf).into();
+                    Some(palette.nearest_color(color) as u8)
+                }
+            })
+            .collect::<Vec<_>>(),
+        _ => todo!(),
+    };
+
+    Ok(Patch {
+        left: 0,
+        top: 0,
+        width,
+        height,
+        data,
+    })
 }
