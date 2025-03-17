@@ -3,26 +3,23 @@ import { createSignal, createEffect } from 'solid-js'
 import Header from './components/Header.tsx';
 import SpraySelect from './components/SpraySelect.tsx';
 
-import Worker from './worker/index.ts?worker';
-import { RecvEvent, Spray } from './types.ts';
+import { Spingen, Spray, SpingenContext } from './spingen';
 
 function App() {
   // setup lists
   const [sprays, setSprays] = createSignal([] as Spray[]);
   const [skins, setSkins] = createSignal([]);
 
-  // create app web worker and register events
-  const worker = new Worker();
-  worker.onmessage = (msg: MessageEvent) => {
-    const data = msg.data as RecvEvent;
+  // create spingen
+  const spingen = new Spingen();
 
-    if (data.id === "newSpray") {
-      setSprays((sprays) => sprays.concat([data.data]));
-    }
+  // setup events
+  spingen.onSpray = (spray: Spray) => {
+    setSprays((sprays) => sprays.concat([spray]));
   };
 
   const onFile = (file: File) => {
-    worker.postMessage({ id: "newFile", data: file });
+    spingen.loadFile(file);
   };
 
   createEffect(() => {
@@ -30,14 +27,14 @@ function App() {
   });
 
   return (
-    <>
+    <SpingenContext.Provider value={spingen}>
       <Header onFile={onFile}/>
       <main>
         <section class="select-menu">
           <SpraySelect sprays={sprays} />
         </section>
       </main>
-    </>
+    </SpingenContext.Provider>
   )
 }
 

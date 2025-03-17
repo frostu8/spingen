@@ -1,5 +1,5 @@
 import { Spingen } from '../../spingen-lib/pkg/spingen';
-import { SendEvent } from '../types.ts';
+import { SendEvent } from './shared.ts';
 
 // Create a new Spingen instance to communicate to our image algorithms.
 const spingen = new Spingen();
@@ -21,5 +21,22 @@ self.onmessage = async (ev: MessageEvent) => {
         },
       })
     })
+  } else if (data.id === "generateSprayImage") {
+    // try to create spray image
+    try {
+      const url = spingen.generateSprayImage(data.data);
+
+      self.postMessage({
+        id: "generateSprayImage",
+        data: url,
+        seq: data.seq,
+      });
+    } catch (e) {
+      self.postMessage({
+        id: "error",
+        data: e,
+        seq: data.seq,
+      })
+    }
   }
 };

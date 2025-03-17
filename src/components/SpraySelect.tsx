@@ -1,5 +1,5 @@
-import { Spray } from '../types.ts';
-import { For } from 'solid-js';
+import { SpingenContext, Spray } from '../spingen';
+import { Switch, Match, For, createResource, useContext } from 'solid-js';
 
 export interface SpraySelectProps {
   sprays: () => Spray[];
@@ -13,8 +13,23 @@ interface SpraySelectOptionProps {
 const SpraySelectOption = (props: SpraySelectOptionProps) => {
   const buttonClass = props.selected ? "spray-button selected" : "spray-button";
 
+  const spingen = useContext(SpingenContext);
+
+  const [sprayUrl] = createResource(
+    () => props.spray,
+    async (spray: Spray) => {
+      const url = await spingen?.createSprayImage(spray);
+      return url;
+    },
+  );
+
   return (
     <button class={buttonClass}>
+      <Switch>
+        <Match when={sprayUrl()}>
+          <img src={sprayUrl()} alt="spray can"/>
+        </Match>
+      </Switch>
       { props.spray.name }
     </button>
   );
