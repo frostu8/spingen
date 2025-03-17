@@ -7,9 +7,25 @@ use crate::doom::spray::{sprays as doom_sprays, Spray as DoomSpray};
 use std::ops::Deref;
 use std::sync::Arc;
 
+use wasm_bindgen::prelude::*;
+
 /// An easily cloneable spray can.
 #[derive(Clone, Debug, Default, PartialEq)]
+#[wasm_bindgen]
 pub struct Spray(Arc<DoomSpray>);
+
+#[wasm_bindgen]
+impl Spray {
+    #[wasm_bindgen(getter)]
+    pub fn id(&self) -> String {
+        self.id.clone()
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn name(&self) -> String {
+        self.name.clone()
+    }
+}
 
 impl From<DoomSpray> for Spray {
     fn from(value: DoomSpray) -> Self {
@@ -26,7 +42,7 @@ impl Deref for Spray {
 }
 
 /// A list of all sprays in the base game.
-pub fn sprays() -> im::Vector<Spray> {
+pub fn sprays() -> Vec<Spray> {
     doom_sprays()
         .into_iter()
         .map(|spray| Spray::from(spray))

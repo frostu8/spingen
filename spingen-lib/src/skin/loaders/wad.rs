@@ -96,7 +96,7 @@ impl Iterator for WadSkinLoader {
                 Err(err) => return Some(Err(err.into())),
             }
             if let Err(err) = index.add(*entry.name(), Lump::new(buf)) {
-                leptos::logging::warn!("{:?}", err);
+                warn!("{:?}", err);
             }
         }
 

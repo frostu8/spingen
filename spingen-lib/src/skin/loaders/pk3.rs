@@ -97,7 +97,7 @@ impl Pk3SkinLoader {
 
                 // read patch data
                 if let Err(err) = index.add(name, Lump::new_from_zip(self.zip.clone(), i)) {
-                    leptos::logging::warn!("{:?}", err);
+                    warn!("{:?}", err);
                 }
             }
         }
