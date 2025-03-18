@@ -15,17 +15,66 @@ use wad::Name;
 
 use derive_more::{Deref, Display};
 
+use wasm_bindgen::prelude::*;
+
 /// The actual internal skin data.
 ///
 /// Contains information about the skin, and all the patches associated with
 /// it. This data never changes, so it is exchanged around in an [`Arc`].
 #[derive(Clone, Deref)]
+#[wasm_bindgen]
 pub struct Skin {
     /// The skin index
     index: Arc<spr2::Index>,
     /// The skin description.
     #[deref]
     skin: Arc<SkinDefine>,
+}
+
+#[wasm_bindgen]
+impl Skin {
+    #[wasm_bindgen(getter)]
+    pub fn name(&self) -> String {
+        self.skin.name.clone()
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn realname(&self) -> String {
+        self.skin.realname.clone()
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn kartspeed(&self) -> i32 {
+        self.skin.kartspeed
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn kartweight(&self) -> i32 {
+        self.skin.kartweight
+    }
+
+    pub fn sprites(&self) -> Vec<String> {
+        let mut sprites = self
+            .iter()
+            .map(|name| name.as_str().to_owned())
+            .collect::<Vec<_>>();
+        sprites.sort();
+        sprites
+    }
+
+    pub fn frames(&self, frame: String) -> Result<Vec<String>, JsValue> {
+        let name = frame
+            .parse::<Name>()
+            .map_err(|err| JsValue::from(format!("{}", err)))?;
+
+        let mut frames = self
+            .iter_frames(&name)
+            .map(|ch| ch as char)
+            .map(String::from)
+            .collect::<Vec<_>>();
+        frames.sort();
+        Ok(frames)
+    }
 }
 
 impl Skin {

@@ -2,7 +2,7 @@
 import Worker from './worker.ts?worker';
 import * as Comlink from 'comlink';
 import { createContext } from 'solid-js';
-import { Spray, Skin, SpingenWorker } from './shared.ts';
+import { Spray, Skin, SpingenWorker, SkinOptions } from './shared.ts';
 
 // share all types
 export * from './shared.ts';
@@ -41,6 +41,14 @@ export class Spingen {
 
   createSprayImage(spray: Spray): Promise<string> {
     return this.comlink.createSprayImage(spray);
+  }
+
+  createSkinAnimation(skin: Skin, spray: Spray | null, options: SkinOptions): Promise<string> {
+    return this.comlink.createSkinAnimation(skin, spray, options);
+  }
+
+  createSkinThumbnail(skin: Skin, spray: Spray | null): Promise<string> {
+    return this.comlink.createSkinThumbnail(skin, spray);
   }
 }
 

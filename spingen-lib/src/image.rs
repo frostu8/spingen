@@ -13,6 +13,8 @@ use derive_more::{Display, From};
 
 use wad::Name;
 
+use wasm_bindgen::prelude::*;
+
 /// An image encoder for a skin.
 #[derive(Debug)]
 pub struct Encoder<'a> {
@@ -149,6 +151,7 @@ impl<'a> Encoder<'a> {
 
 /// GIF encode options.
 #[derive(Clone, Debug, PartialEq)]
+#[wasm_bindgen]
 pub struct GifOptions {
     /// The factor to upscale by.
     pub scale: f32,
@@ -158,6 +161,14 @@ pub struct GifOptions {
     pub delay: u16,
     /// Whether to mirror across the X axis.
     pub mirror: bool,
+}
+
+#[wasm_bindgen]
+impl GifOptions {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> GifOptions {
+        GifOptions::default()
+    }
 }
 
 impl Default for GifOptions {

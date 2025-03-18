@@ -3,16 +3,17 @@ import { Switch, Match, For, createResource, useContext } from 'solid-js';
 
 export interface SpraySelectProps {
   sprays: () => Spray[];
+  value?: () => Spray | undefined;
+  onChange: (spray: Spray) => void;
 };
 
 interface SpraySelectOptionProps {
   spray: Spray;
-  selected: boolean;
+  selected: () => boolean;
+  onClick: (ev: MouseEvent) => void;
 }
 
 const SpraySelectOption = (props: SpraySelectOptionProps) => {
-  const buttonClass = props.selected ? "spray-button selected" : "spray-button";
-
   const spingen = useContext(SpingenContext);
 
   const [sprayUrl] = createResource(
@@ -24,7 +25,12 @@ const SpraySelectOption = (props: SpraySelectOptionProps) => {
   );
 
   return (
-    <button class={buttonClass}>
+    <button
+      class={
+        props.selected() ? "spray-button selected" : "spray-button"
+      }
+      on:click={props.onClick}
+    >
       <Switch>
         <Match when={sprayUrl()}>
           <img src={sprayUrl()} alt="spray can"/>
@@ -40,7 +46,11 @@ const SpraySelect = (props: SpraySelectProps) => {
     <div class="spray-select">
       <For each={props.sprays()}>
         {(item, _index) => (
-          <SpraySelectOption spray={item} selected={false}/>
+          <SpraySelectOption
+            spray={item}
+            selected={() => props.value ? item.id === props.value()?.id : false}
+            onClick={() => props.onChange(item)}
+          />
         )}
       </For>
     </div>
