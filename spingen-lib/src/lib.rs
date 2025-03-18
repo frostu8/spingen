@@ -18,7 +18,7 @@ use gloo::file::{futures::read_as_bytes, Blob, File};
 use doom::patch::{Palette, Patch};
 use image::patch_to_image;
 use skin::Skin;
-use spray::{loaders::Pk3SprayLoader, Spray};
+use spray::{loaders::Pk3SprayLoader, sprays, Spray};
 
 use std::io::{self, Cursor};
 
@@ -54,6 +54,16 @@ impl Spingen {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Spingen {
         Spingen::default()
+    }
+
+    /// Loads the default sprays.
+    #[wasm_bindgen(js_name = fetchDefaultSprays)]
+    pub fn fetch_default_sprays(&mut self) -> Vec<Spray> {
+        let sprays = sprays();
+
+        self.sprays
+            .extend(sprays.iter().map(|spray| (spray.id.clone(), spray.clone())));
+        sprays
     }
 
     /// Loads sprays from a file.

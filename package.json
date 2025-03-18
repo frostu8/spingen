@@ -12,6 +12,7 @@
     "solid-js": "^1.9.5"
   },
   "devDependencies": {
+    "comlink": "^4.4.2",
     "sass-embedded": "^1.85.1",
     "typescript": "~5.7.2",
     "vite": "^6.2.0",

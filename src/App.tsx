@@ -3,12 +3,12 @@ import { createSignal, createEffect } from 'solid-js'
 import Header from './components/Header.tsx';
 import SpraySelect from './components/SpraySelect.tsx';
 
-import { Spingen, Spray, SpingenContext } from './spingen';
+import { Spingen, Spray, Skin, SpingenContext } from './spingen';
 
 function App() {
   // setup lists
-  const [sprays, setSprays] = createSignal([] as Spray[]);
-  const [skins, setSkins] = createSignal([]);
+  const [sprays, setSprays] = createSignal<Spray[]>([]);
+  const [skins, setSkins] = createSignal<Skin[]>([]);
 
   // create spingen
   const spingen = new Spingen();
@@ -17,14 +17,19 @@ function App() {
   spingen.onSpray = (spray: Spray) => {
     setSprays((sprays) => sprays.concat([spray]));
   };
-
-  const onFile = (file: File) => {
-    spingen.loadFile(file);
+  spingen.onSkin = (skin: Skin) => {
+    setSkins((skins) => skins.concat([skin]));
   };
+  spingen.onReady = (otherSprays: Spray[]) => {
+    setSprays((sprays) => sprays.concat(otherSprays));
+  }
 
-  createEffect(() => {
-    console.log(sprays());
-  });
+  // reactive dom events
+  const onFile = (file: File) => {
+    spingen.loadFile(file)
+      .then(() => console.log("loaded file", file.name))
+      .catch((error) => console.error(error));
+  };
 
   return (
     <SpingenContext.Provider value={spingen}>

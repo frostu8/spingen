@@ -1,70 +1,46 @@
 // All of the internal stuff for spingen.
 import Worker from './worker.ts?worker';
+import * as Comlink from 'comlink';
 import { createContext } from 'solid-js';
-import { Spray, RecvEvent } from './shared.ts';
+import { Spray, Skin, SpingenWorker } from './shared.ts';
 
 // share all types
 export * from './shared.ts';
 
-interface Request {
-  resolve: (data: any) => void;
-  reject: (data: any) => void;
-  seq: number;
-}
-
 export class Spingen {
-  worker: Worker;
-  seq: number;
+  comlink: Comlink.Remote<SpingenWorker>;
 
-  onSpray?: (spray: Spray) => void;
-
-  requests: Request[];
+  onReady: (sprays: Spray[]) => void;
+  onSpray: (spray: Spray) => void;
+  onSkin: (skin: Skin) => void;
 
   constructor() {
-    this.worker = new Worker({ name: "spingen" });
-    this.seq = 0;
-    this.requests = [];
+    const worker = new Worker({ name: "spingen" });
 
-    this.worker.onmessage = (msg: MessageEvent) => {
-      const data = msg.data as RecvEvent;
+    this.comlink = Comlink.wrap(worker);
 
-      if (data.id === "newSpray") {
-        if (this.onSpray) {
-          this.onSpray(data.data);
-        }
-      } else if (data.id === "generateSprayImage") {
-        const req = this.getRequest(data.seq);
-        if (req) {
-          req.resolve(data.data);
-        }
-      } else if (data.id === "error") {
-        const req = this.getRequest(data.seq);
-        if (req) {
-          req.reject(data.data);
-        }
+    // initialize default handlers
+    this.onReady = () => {};
+    this.onSpray = () => {};
+    this.onSkin = () => {};
+
+    // wait for init
+    const readyListener = (msg: MessageEvent) => {
+      if (msg.data && msg.data.id === "READY") {
+        this.onReady(msg.data.sprays);
+        worker.removeEventListener("message", readyListener);
       }
     };
+
+    worker.addEventListener("message", readyListener);
   }
 
-  getRequest(seq: number): Request | undefined {
-    return this.requests.find((req) => req.seq === seq);
+  loadFile(file: File): Promise<void> {
+    return this.comlink.loadFile(file, Comlink.proxy(this.onSpray), Comlink.proxy(this.onSkin));
   }
 
-  loadFile(file: File) {
-    this.worker.postMessage({ id: "newFile", data: file });
-  }
-
-  async createSprayImage(spray: Spray): Promise<string> {
-    this.seq += 1;
-
-    this.worker.postMessage({
-      id: "generateSprayImage",
-      seq: this.seq,
-      data: spray.id,
-    });
-    return new Promise((resolve, reject) => {
-      this.requests.push({ seq: this.seq, resolve, reject });
-    });
+  createSprayImage(spray: Spray): Promise<string> {
+    return this.comlink.createSprayImage(spray);
   }
 }
 

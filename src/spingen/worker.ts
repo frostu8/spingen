@@ -1,42 +1,56 @@
-import { Spingen } from '../../spingen-lib/pkg/spingen';
-import { SendEvent } from './shared.ts';
+import { Spingen, Spray as WasmSpray } from '../../spingen-lib/pkg/spingen';
+import { SpingenWorker, Spray, SprayFn, SkinFn } from './shared.ts';
+import * as Comlink from 'comlink';
 
 // Create a new Spingen instance to communicate to our image algorithms.
 const spingen = new Spingen();
 
-self.onmessage = async (ev: MessageEvent) => {
-  const data = ev.data as SendEvent;
+async function loadFile(
+  file: File,
+  sprayFn: SprayFn,
+  _skinFn: SkinFn,
+) {
+  // load all sprays from file
+  await spingen.fetchSprays(file, (spray: WasmSpray) => {
+    // remove all WASM typedata so we don't share any WASM data to the main
+    // thread
+    sprayFn({
+      id: spray.id,
+      name: spray.name,
+    });
 
-  if (data.id === "newFile") {
-    console.log("loading file " + data.data.name);
+    spray.free();
+  });
 
-    // load all sprays from file
-    await spingen.fetchSprays(data.data, (spray: any) => {
-      // post new spray for each new spray
-      self.postMessage({
-        id: "newSpray",
-        data: {
-          id: spray.id,
-          name: spray.name,
-        },
-      })
-    })
-  } else if (data.id === "generateSprayImage") {
-    // try to create spray image
-    try {
-      const url = spingen.generateSprayImage(data.data);
+  // load all skins from file
+  //await spingen.fetchSprays(file, sprayFn);
+}
 
-      self.postMessage({
-        id: "generateSprayImage",
-        data: url,
-        seq: data.seq,
-      });
-    } catch (e) {
-      self.postMessage({
-        id: "error",
-        data: e,
-        seq: data.seq,
-      })
-    }
-  }
+function createSprayImage(spray: Spray) {
+  return spingen.generateSprayImage(spray.id);
+}
+
+// Create comlink
+const spingenWorker: SpingenWorker = {
+  loadFile,
+  createSprayImage,
 };
+
+// Expose comlink
+Comlink.expose(spingenWorker);
+
+// load default sprays
+const sprays = spingen
+  .fetchDefaultSprays()
+  .map((spray) => {
+    const newSpray = {
+      id: spray.id,
+      name: spray.name,
+    };
+    spray.free();
+
+    return newSpray;
+  });
+
+console.log('WASM initialized, sending ready');
+self.postMessage({ id: 'READY', sprays });
