@@ -37,6 +37,7 @@ jobs:
         run: rustup target add wasm32-unknown-unknown
 
       - name: lint
+        working-directory: ./spingen-lib
         run: cargo clippy & cargo fmt
 
       - name: Download and install wasm-pack binary
