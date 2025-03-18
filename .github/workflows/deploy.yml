@@ -46,7 +46,7 @@ jobs:
 
       - name: Build Rust with wasm-pack
         working-directory: ./spingen-lib
-        run: ./wasm-pack build --release
+        run: ./wasm-pack-v0.13.1-x86_64-unknown-linux-musl/wasm-pack build --release
 
       # Now that the Rust side of things is done packing, go back to build the
       # Vite application
