@@ -3,7 +3,7 @@ export interface HeaderProps { onFile: (file: File) => void; };
 const Header = (props: HeaderProps) => {
   let fileDialog!: HTMLInputElement;
 
-  let onInputFile = (ev: InputEvent) => {
+  let onInputFile = (ev: Event) => {
     let target = ev.target as HTMLInputElement;
 
     if (target.files) {
@@ -46,7 +46,7 @@ const Header = (props: HeaderProps) => {
       <input
         type="file"
         accept=".pk3,.wad"
-        multiple="true"
+        multiple={true}
         class="hidden"
         on:change={onInputFile}
         ref={fileDialog}

@@ -3,7 +3,7 @@ import { Switch, Match, For, createResource, useContext } from 'solid-js';
 
 export interface SpraySelectProps {
   sprays: () => Spray[];
-  value?: () => Spray | undefined;
+  value?: () => Spray | undefined | null;
   onChange: (spray: Spray) => void;
 };
 

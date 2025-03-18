@@ -1,5 +1,4 @@
 // All of the internal stuff for spingen.
-import Worker from './worker.ts?worker';
 import * as Comlink from 'comlink';
 import { createContext } from 'solid-js';
 import { Spray, Skin, SpingenWorker, SkinOptions } from './shared.ts';
@@ -15,7 +14,13 @@ export class Spingen {
   onSkin: (skin: Skin) => void;
 
   constructor() {
-    const worker = new Worker({ name: "spingen" });
+    // In development mode, `import`s in workers are not transformed, so you
+    // must use `{ type: "module" }`.
+    const worker = import.meta.env.DEV
+      ? new Worker(new URL("./worker.ts", import.meta.url), { type: "module", name: "spingen" })
+        // In build mode, let Vite and vite-plugin-top-level-await build a single-file
+        // bundle of your worker that works on both modern browsers and Firefox.
+      : new Worker(new URL("./worker.ts", import.meta.url), { type: "classic", name: "spingen" });
 
     this.comlink = Comlink.wrap(worker);
 

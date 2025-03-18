@@ -17,16 +17,13 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  Github-Pages-Release:
-
+  build:
+    name: Build
+    runs-on: ubuntu-latest
     timeout-minutes: 10
-
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-
-    runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4 # repo checkout
 
@@ -42,40 +39,48 @@ jobs:
       - name: lint
         run: cargo clippy & cargo fmt
 
+      - name: Download and install wasm-pack binary
+        working-directory: ./spingen-lib
+        run: wget -qO- https://github.com/rustwasm/wasm-pack/releases/download/v0.13.1/wasm-pack-v0.13.1-x86_64-unknown-linux-musl.tar.gz | tar -xzf-
 
-      # If using tailwind...
-      # - name: Download and install tailwindcss binary
-      #   run: npm install -D tailwindcss && npx tailwindcss -i <INPUT/PATH.css> -o <OUTPUT/PATH.css>  # run tailwind
+      - name: Build Rust with wasm-pack
+        working-directory: ./spingen-lib
+        run: ./wasm-pack build --release
 
+      # Now that the Rust side of things is done packing, go back to build the
+      # Vite application
+      - name: Setup Node
+        uses: actions/setup-node@v4
 
-      - name: Download and install Trunk binary
-        run: wget -qO- https://github.com/trunk-rs/trunk/releases/download/v0.18.4/trunk-x86_64-unknown-linux-gnu.tar.gz | tar -xzf-
+      - name: Install dependencies
+        uses: bahmutov/npm-install@v1
 
-      - name: Build with Trunk
-        # "${GITHUB_REPOSITORY#*/}" evaluates into the name of the repository
-        # using --public-url something will allow trunk to modify all the href paths like from favicon.ico to repo_name/favicon.ico .
-        # this is necessary for github pages where the site is deployed to username.github.io/repo_name and all files must be requested
-        # relatively as favicon.ico. if we skip public-url option, the href paths will instead request username.github.io/favicon.ico which
-        # will obviously return error 404 not found.
-        #run: ./trunk build --release --public-url "${DEPLOY_URL}"
-        run: ./trunk build --release
+      - name: Build project
+        run: npm run build
 
-
-      # Deploy to gh-pages branch
-      # - name: Deploy 🚀
-      #   uses: JamesIves/github-pages-deploy-action@v4
-      #   with:
-      #     folder: dist
-
-
+      - name: Upload production-ready build files
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-files
+          path: ./dist
+  
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
       # Deploy with Github Static Pages
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: production-files
+          path: ./dist
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
         with:
           enablement: true
-          # token:
-
+      
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:

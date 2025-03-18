@@ -120,7 +120,7 @@ const ViewSkin = (props: ViewSkinProps) => {
           />
           <select
             on:change={(ev) => {
-              setScale(ev.target.value);
+              setScale(ev.target.value as SpriteScale);
             }}
             value={scale()}
           >
