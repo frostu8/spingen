@@ -138,10 +138,12 @@ impl Pk3SprayLoader {
                     name,
                     value: Some(value),
                 } if name.eq_ignore_ascii_case("SKINCOLOR") && is_skincolor_name(value) => {
+                    let spray = self.sprays.entry(value.to_owned()).or_default();
+                    /*
                     let Some(spray) = self.sprays.get_mut(value) else {
                         return Err(Report::msg(format!("undefined skincolor: \"{}\"", value)))
                             .wrap_err_with(wrap_err);
-                    };
+                    };*/
 
                     let deser_spray = parser
                         .deserialize::<OptionalSpray>()

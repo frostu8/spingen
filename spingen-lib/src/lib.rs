@@ -272,23 +272,21 @@ impl Spingen {
         };
 
         // get spray if it exists
-        let Some(spray) = spray_id
-            .as_ref()
-            .and_then(|spray_id| self.sprays.get(spray_id))
-            .or_else(|| {
-                self.sprays
-                    .values()
-                    .find(|spray| spray.name.eq_ignore_ascii_case(&skin.prefcolor))
-            })
-        else {
-            if let Some(spray) = spray_id {
-                return Err(format!("spray \"{}\" not found", spray).into());
+        let spray = if let Some(spray_id) = spray_id {
+            match self.sprays.get(&spray_id) {
+                Some(spray) => spray,
+                None => return Err(format!("spray \"{}\" not found", spray_id).into()),
+            }
+        } else {
+            let spray = self
+                .sprays
+                .values()
+                .find(|spray| spray.name.eq_ignore_ascii_case(&skin.prefcolor));
+            if let Some(spray) = spray {
+                spray
             } else {
-                return Err(format!(
-                    "skin \"{}\" has invalid prefcolor \"{}\"",
-                    skin.name, skin.prefcolor
-                )
-                .into());
+                warn!("invalid prefcolor {:?}, using default", skin.prefcolor);
+                self.sprays.values().next().expect("at least 1 spray")
             }
         };
 
