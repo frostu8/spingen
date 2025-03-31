@@ -24,8 +24,8 @@ function skinClass(skin: SkinWithSpray) {
     "Class I",
   ];
 
-  let x = Math.min((Math.max(skin.kartspeed, 1) - 1) / 3, 2);
-  let y = Math.min((Math.max(skin.kartweight, 1) - 1) / 3, 2);
+  let x = Math.min(Math.floor((Math.max(skin.kartspeed, 1) - 1) / 3), 2);
+  let y = Math.min(Math.floor((Math.max(skin.kartweight, 1) - 1) / 3), 2);
 
   return CLASSES[y * 3 + x];
 }
