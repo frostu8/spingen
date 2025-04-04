@@ -13,11 +13,10 @@ use derive_more::{Display, Error, From};
 
 use ahash::HashMap;
 
-use gloo::file::{futures::read_as_bytes, Blob, File};
+use gloo::file::{futures::read_as_bytes, File};
 
 use doom::patch::{Palette, Patch};
-use image::patch_to_image;
-use image::Encoder;
+use image::{patch_to_image, EncodedImageKind, Encoder};
 use skin::{
     loaders::{Pk3SkinLoader, WadSkinLoader},
     Skin,
@@ -184,9 +183,10 @@ impl Spingen {
             .wrap_err("failed to generate spraycan graphic")
             .map_err(|err| JsValue::from(format!("{:?}", err)))?;
 
-        let blob = Blob::new_with_options(&buf[..], Some("image/png"));
+        let name = format!("{}.png", spray.name);
+        let file = File::new_with_options(&name, &buf[..], Some("image/png"), None);
 
-        Url::create_object_url_with_blob(blob.as_ref())
+        Url::create_object_url_with_blob(file.as_ref())
     }
 
     /// Generates a skin animation.
@@ -214,15 +214,19 @@ impl Spingen {
 
         // generate new gif
         let mut buf = Vec::new();
-        encoder
+        let encoded_kind = encoder
             .sprite_gif_with_options(Cursor::new(&mut buf), name, frame, options)
             .wrap_err("failed to encode gif")
             .map_err(|err| JsValue::from(format!("{:?}", err)))?;
 
-        // ignore MIME for now
-        let blob = Blob::new_with_options(&buf[..], None);
+        let name = match encoded_kind {
+            EncodedImageKind::Png => format!("{}.png", name),
+            EncodedImageKind::Gif => format!("{}.gif", name),
+        };
 
-        Url::create_object_url_with_blob(blob.as_ref())
+        let file = File::new_with_options(&name, &buf[..], Some(encoded_kind.as_mime_type()), None);
+
+        Url::create_object_url_with_blob(file.as_ref())
     }
 
     /// Generates a skin thumbnail.
@@ -256,9 +260,10 @@ impl Spingen {
             .wrap_err("failed to encode thumbnail")
             .map_err(|err| JsValue::from(format!("{:?}", err)))?;
 
-        let blob = Blob::new_with_options(&buf[..], Some("image/png"));
+        let name = format!("{}.png", skin.realname.replace('_', " "));
+        let file = File::new_with_options(&name, &buf[..], Some("image/png"), None);
 
-        Url::create_object_url_with_blob(blob.as_ref())
+        Url::create_object_url_with_blob(file.as_ref())
     }
 
     fn get_skin_and_spray(
