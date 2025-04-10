@@ -71,7 +71,12 @@ impl<'a> Encoder<'a> {
     }
 
     /// Gets a sprite index, and encodes it as an image.
-    pub fn sprite_gif<W>(&mut self, writer: W, name: Name, frame: u8) -> Result<(), EncodeError>
+    pub fn sprite_gif<W>(
+        &mut self,
+        writer: W,
+        name: Name,
+        frame: u8,
+    ) -> Result<EncodedImageKind, EncodeError>
     where
         W: Write,
     {
@@ -85,7 +90,7 @@ impl<'a> Encoder<'a> {
         name: Name,
         frame: u8,
         options: GifOptions,
-    ) -> Result<(), EncodeError>
+    ) -> Result<EncodedImageKind, EncodeError>
     where
         W: Write,
     {
@@ -107,7 +112,9 @@ impl<'a> Encoder<'a> {
         };
         if angles.len() == 0 {
             // create still png
-            return self.sprite_with_options(writer, spr2.name, options);
+            return self
+                .sprite_with_options(writer, spr2.name, options)
+                .map(|()| EncodedImageKind::Png);
         }
 
         let patch = self.skin_data.read(&spr2.name)?;
@@ -145,7 +152,7 @@ impl<'a> Encoder<'a> {
             )?;
         }
 
-        Ok(())
+        Ok(EncodedImageKind::Gif)
     }
 }
 
@@ -305,6 +312,27 @@ where
     let mut writer = encoder.write_header()?;
     writer.write_image_data(&data)?;
     writer.finish().map_err(From::from)
+}
+
+/// The type of image that has been encoded.
+///
+/// The image encoder may choose to encode an image as a PNG if a GIF would
+/// only consist of one frame.
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
+pub enum EncodedImageKind {
+    #[default]
+    Png,
+    Gif,
+}
+
+impl EncodedImageKind {
+    /// Represents the `EncodedImageKind` as a MIME type.
+    pub fn as_mime_type(&self) -> &'static str {
+        match self {
+            EncodedImageKind::Png => "image/png",
+            EncodedImageKind::Gif => "image/gif",
+        }
+    }
 }
 
 /// An error for encoding.
